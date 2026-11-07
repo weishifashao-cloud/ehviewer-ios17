@@ -1,0 +1,99 @@
+name: build-ios17
+
+# 在 GitHub 的 macOS runner 上把 EhViewer 编译成 iOS 17 可用的未签名 ipa。
+# 不需要本机有 mac；产物下载回来用 Windows 侧 zsign / Sideloadly 签名。
+#
+# 触发：Actions 页面点 Run workflow，或 push 到 main/master。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    # 锁 macos-26：该镜像预装 Xcode 26.x，与本项目的构建工具链一致。
+    # 若将来此镜像退役，改成 macos-latest 或当时可用的最高版本即可。
+    runs-on: macos-26
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 选择最新的 Xcode
+        run: |
+          echo "已安装的 Xcode："
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          NEWEST=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$NEWEST" ]; then
+            sudo xcode-select -s "$NEWEST/Contents/Developer"
+          fi
+          xcodebuild -version
+          echo "--- iOS SDK ---"
+          xcodebuild -showsdks | grep -i "iphoneos" || true
+
+      - name: 解析 Swift Package 依赖
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project "ehviewer apple.xcodeproj" \
+            -scheme "ehviewer apple"
+
+      - name: 编译（Release / arm64 / 不签名）
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "ehviewer apple.xcodeproj" \
+            -scheme "ehviewer apple" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tee build.log | tail -n 80
+
+      - name: 自检（闸门与 minos 是否真的 17.0）
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          echo "APP = $APP"
+          echo "--- MinimumOSVersion ---"
+          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP/Info.plist"
+          EXE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
+          echo "--- LC_BUILD_VERSION (minos) ---"
+          otool -l "$APP/$EXE" | grep -A5 LC_BUILD_VERSION | head -14
+          echo "--- 扩展 ---"
+          find "$APP/PlugIns" -maxdepth 1 -name "*.appex" -print 2>/dev/null || true
+
+      - name: 打包成 ipa
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          rm -rf Payload && mkdir -p Payload
+          cp -R "$APP" Payload/
+          # ditto 会保留可执行位与符号链接，这是 ipa 能装的前提
+          ditto -c -k --sequesterRsrc --keepParent Payload "EhViewer-ios17-unsigned.ipa"
+          ls -lh "EhViewer-ios17-unsigned.ipa"
+          shasum -a 256 "EhViewer-ios17-unsigned.ipa"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: EhViewer-ios17-unsigned
+          path: EhViewer-ios17-unsigned.ipa
+          if-no-files-found: error
+
+      - name: 汇总编译错误
+        if: failure()
+        run: |
+          echo "=== 所有 error: ==="
+          grep -E "error:" build.log 2>/dev/null | sed 's|.*/Packages/|Packages/|; s|.*/ehviewer apple/|ehviewer apple/|' | sort -u | head -40 || echo "（没有 error: 行，可能是链接或签名阶段失败）"
+
+      - name: 失败时上传编译日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore

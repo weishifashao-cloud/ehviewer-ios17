@@ -1,0 +1,333 @@
+//
+//  EhSearchBar.swift
+//  ehviewer apple
+//
+//  统一的搜索框
+//
+//  此前各页各写各的：首页是自绘胶囊，收藏/下载/历史用 `.searchable`。
+//  这带来两个问题：
+//
+//    1. 样式不统一 —— 同一个 App 里有两种搜索框
+//    2. iOS 26 的 `.searchable` 把搜索栏放在**屏幕底部**，于是它和浮起导航条
+//       重叠，键盘弹出后也没有收起的落点
+//
+//  标签 token 用 UIKit 的 `UISearchTextField` 而不是自己拼「chip 行 + 输入框」：
+//  它原生支持 token 与文本混排，且退格键的语义已经是对的 ——
+//  光标在文本里时删字符，文本删空后再退格才删掉前一个 token。
+//  自己实现这套光标语义很容易在中文输入法的 marked text 上出错。
+//
+
+import SwiftUI
+import EhSettings
+
+#if canImport(UIKit)
+import UIKit
+#endif
+
+// MARK: - 搜索框
+
+struct EhSearchBar: View {
+    @Binding var text: String
+    /// 已确定的标签，显示为可整体删除的 token
+    @Binding var tokens: [String]
+
+    var placeholder: String = "搜索标签或标题"
+    var showsCancelButton: Bool = true
+
+    /// 聚焦状态。这里用普通 Binding 而不是 @FocusState.Binding：
+    /// iOS 侧的焦点由 UISearchTextField 自己持有，而 @FocusState.Binding
+    /// 在 UIViewRepresentable 的 delegate 回调里赋值会被 SwiftUI 丢掉，
+    /// 表现为「取消」按钮不出现、右侧图标不让位。
+    @Binding var isFocused: Bool
+
+    /// 右侧附加按钮（标签选择器、高级搜索等）。聚焦时让位给「取消」。
+    var trailingButtons: [(symbol: String, action: () -> Void)] = []
+    var onSubmit: () -> Void = {}
+
+    #if !os(iOS)
+    @FocusState private var macFocus: Bool
+    #endif
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15))
+                    .foregroundStyle(EhColor.tertiaryLabel)
+
+                #if os(iOS)
+                EhTokenSearchField(
+                    text: $text,
+                    tokens: $tokens,
+                    placeholder: placeholder,
+                    isFocused: $isFocused,
+                    onSubmit: onSubmit
+                )
+                .frame(height: 24)
+                #else
+                TextField(placeholder, text: $text)
+                    .textFieldStyle(.plain)
+                    .focused($macFocus)
+                    .onSubmit(onSubmit)
+                    .onChange(of: macFocus) { _, v in isFocused = v }
+                    .onChange(of: isFocused) { _, v in macFocus = v }
+                #endif
+
+                if !text.isEmpty || !tokens.isEmpty {
+                    Button {
+                        text = ""
+                        tokens = []
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(EhColor.tertiaryLabel)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if !isFocused {
+                    ForEach(Array(trailingButtons.enumerated()), id: \.offset) { _, item in
+                        Button(action: item.action) {
+                            Image(systemName: item.symbol)
+                                .font(.system(size: 15))
+                                .foregroundStyle(EhColor.secondaryLabel)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .background {
+                Capsule().fill(EhColor.fill)
+            }
+            .overlay {
+                // 聚焦时描一圈琥珀，明确「正在输入」——
+                // 深色底上仅靠光标闪烁不够显眼
+                if isFocused {
+                    Capsule().strokeBorder(EhColor.accentFill.opacity(0.5), lineWidth: 1)
+                }
+            }
+
+            if showsCancelButton && isFocused {
+                Button("取消") {
+                    isFocused = false
+                    text = ""
+                }
+                .font(EhFont.body)
+                .foregroundStyle(EhColor.accent)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, EhSpacing.page)
+        .padding(.vertical, 8)
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
+    }
+}
+
+// MARK: - 带 token 的输入框 (iOS)
+
+#if os(iOS)
+
+/// 包一层 `UISearchTextField`，把它的 token 能力接进 SwiftUI。
+///
+/// SwiftUI 的 TextField 没有 token 概念，自绘「chip 行 + 输入框」则要自己实现
+/// 光标语义（文本删空后退格删 token）和中文输入法的 marked text 处理，
+/// 而这些 UISearchTextField 早就做对了。
+struct EhTokenSearchField: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var tokens: [String]
+    let placeholder: String
+    @Binding var isFocused: Bool
+    var onSubmit: () -> Void
+
+    func makeUIView(context: Context) -> UISearchTextField {
+        let field = UISearchTextField()
+        field.placeholder = placeholder
+        field.borderStyle = .none
+        field.backgroundColor = .clear
+        field.font = .systemFont(ofSize: 15)
+        field.returnKeyType = .search
+        field.autocorrectionType = .no
+        field.autocapitalizationType = .none
+        field.clearButtonMode = .never          // 清除按钮由 SwiftUI 侧统一绘制
+        // UISearchTextField 自带一枚放大镜。这里的图标由 SwiftUI 侧统一绘制
+        // （macOS 分支没有 UISearchTextField，两端要长得一样），把内置的关掉，
+        // 否则会并排出现两个放大镜。
+        field.leftView = nil
+        field.leftViewMode = .never
+        // token 多了要能横向拖动查看。UISearchTextField 继承自 UITextField，
+        // 默认只在编辑时随光标滚动；这里放开滚动并允许拖拽，
+        // 未聚焦时也能左右划着看完整条件。
+        field.adjustsFontSizeToFitWidth = false
+        field.allowsDeletingTokens = true
+        if let scroll = field.subviews.compactMap({ $0 as? UIScrollView }).first {
+            scroll.isScrollEnabled = true
+            scroll.alwaysBounceHorizontal = true
+            scroll.showsHorizontalScrollIndicator = false
+        }
+        field.delegate = context.coordinator
+        field.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.textChanged(_:)),
+            for: .editingChanged
+        )
+        // token 被整体删除时也要同步回 SwiftUI
+        field.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.tokensChanged(_:)),
+            for: .allEditingEvents
+        )
+        return field
+    }
+
+    func updateUIView(_ field: UISearchTextField, context: Context) {
+        context.coordinator.parent = self
+
+        if field.text != text {
+            field.text = text
+        }
+
+        // 只在内容真的不同时重建 token，否则每次 body 求值都会打断输入
+        let current = field.tokens.compactMap { $0.representedObject as? String }
+        if current != tokens {
+            field.tokens = tokens.map { tag in
+                let token = UISearchToken(icon: nil, text: Self.displayName(for: tag))
+                token.representedObject = tag
+                return token
+            }
+        }
+
+        if isFocused && !field.isFirstResponder {
+            field.becomeFirstResponder()
+        } else if !isFocused && field.isFirstResponder {
+            field.resignFirstResponder()
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    /// token 上的显示名。完整值仍留在 representedObject 里。
+    ///
+    /// 优先用中文翻译——那是用户在建议列表里认出来并点下去的那个词。
+    /// 没有翻译时保留命名空间：此前剥掉了命名空间，`f:machine` 与手打的
+    /// `machine` 都显示成「machine」，两枚 token 长得一模一样，
+    /// 看起来就像同一个标签加了两遍。
+    private static func displayName(for tag: String) -> String {
+        let normalized = tag.trimmingCharacters(in: CharacterSet(charactersIn: " "))
+        let bare = normalized.replacingOccurrences(of: "\"", with: "")
+            .replacingOccurrences(of: "$", with: "")
+        if let zh = EhTagDatabase.shared.getTranslation(bare), zh != bare {
+            return zh
+        }
+        return bare
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: EhTokenSearchField
+
+        init(parent: EhTokenSearchField) { self.parent = parent }
+
+        @objc func textChanged(_ field: UISearchTextField) {
+            parent.text = field.text ?? ""
+        }
+
+        @objc func tokensChanged(_ field: UISearchTextField) {
+            let values = field.tokens.compactMap { $0.representedObject as? String }
+            if values != parent.tokens {
+                parent.tokens = values
+            }
+        }
+
+        // 在 SwiftUI 的更新周期内直接写状态会被丢弃，派发到下一轮 runloop
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            let binding = parent.$isFocused
+            DispatchQueue.main.async { binding.wrappedValue = true }
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            let binding = parent.$isFocused
+            DispatchQueue.main.async { binding.wrappedValue = false }
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            parent.onSubmit()
+            return true
+        }
+    }
+}
+
+#endif
+
+// MARK: - 页面级搜索
+
+/// 给一个页面加上「工具栏放大镜 → 激活统一搜索框」的行为。
+///
+/// 设计稿里各页的**默认**状态没有搜索栏（下载/收藏/历史顶部是「大标题 + 动作 + 过滤胶囊」），
+/// 但搜索入口是需要的——只是以按钮形态存在，点开才展开输入。
+/// 这样默认状态干净，激活后各页又是同一套 UI，不像此前首页自绘、其余用 .searchable
+/// 那样有两种长相。
+struct EhPageSearchModifier: ViewModifier {
+    @Binding var isActive: Bool
+    @Binding var text: String
+    var placeholder: String
+
+    @State private var tokens: [String] = []
+    @State private var isFocused = false
+
+    func body(content: Content) -> some View {
+        VStack(spacing: 0) {
+            if isActive {
+                EhSearchBar(
+                    text: $text,
+                    tokens: $tokens,
+                    placeholder: placeholder,
+                    isFocused: $isFocused,
+                    onSubmit: { isFocused = false }
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            content
+        }
+        .animation(.easeInOut(duration: 0.2), value: isActive)
+        .onChange(of: isActive) { _, active in
+            if active {
+                // 展开后自动聚焦，省一次点击
+                isFocused = true
+            } else {
+                text = ""
+                tokens = []
+                isFocused = false
+            }
+        }
+        .onChange(of: isFocused) { _, focused in
+            // 点「取消」收起输入时，一并收起整条搜索栏
+            if !focused && text.isEmpty && tokens.isEmpty {
+                isActive = false
+            }
+        }
+    }
+}
+
+extension View {
+    /// 页面级搜索：与 `ehSearchToggleButton` 配合使用
+    func ehPageSearch(
+        isActive: Binding<Bool>, text: Binding<String>, placeholder: String
+    ) -> some View {
+        modifier(EhPageSearchModifier(isActive: isActive, text: text, placeholder: placeholder))
+    }
+}
+
+/// 工具栏里的搜索开关按钮
+struct EhSearchToggleButton: View {
+    @Binding var isActive: Bool
+
+    var body: some View {
+        Button {
+            isActive.toggle()
+        } label: {
+            Image(systemName: isActive ? "magnifyingglass.circle.fill" : "magnifyingglass")
+        }
+        .accessibilityLabel(isActive ? "关闭搜索" : "搜索")
+    }
+}

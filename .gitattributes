@@ -1,0 +1,13 @@
+# 统一用 LF。Windows 上 checkout 若转成 CRLF，
+# Xcode 解析 project.pbxproj 与 .xcscheme 时会报 "The project ... cannot be opened"。
+*.swift text eol=lf
+*.pbxproj text eol=lf
+*.xcscheme text eol=lf
+*.xcworkspacedata text eol=lf
+*.plist text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.strings text eol=lf
+*.sh text eol=lf

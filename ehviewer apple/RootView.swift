@@ -1,0 +1,535 @@
+//
+//  RootView.swift
+//  ehviewer apple
+//
+//  Root navigation: Warning → Security → SiteSelection → Login → Main app
+//
+
+import SwiftUI
+import EhSettings
+import EhAPI
+import EhCookie
+
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
+
+/// 根视图: 引导流程控制器
+/// 流程: 18+警告 → 安全认证 → 站点选择 → 登录检查 → 主界面
+struct RootView: View {
+    @State private var appState: AppState   // 仅在 init() 中初始化，避免创建多余实例
+    @State private var flowStep: OnboardingStep
+    
+    /// 后台进入时间戳，用于判断是否需要重新认证
+    @State private var backgroundTime: Date?
+    
+    /// 剪贴板画廊检测 (对齐 Android MainActivity.onResume 检测 EH 链接)
+    @State private var clipboardGallery: (gid: Int64, token: String)?
+    @State private var showClipboardAlert = false
+    @State private var lastClipboardContent: String?
+
+    /// ExHentai 切换提示
+    @State private var showExHAlert = false
+
+    /// 缓存深色模式偏好 — 打破 body 对 AppSettings.shared.theme 的直接 observation 链
+    @State private var cachedColorScheme: ColorScheme?
+
+    /// Sad Panda / igneous 失效警告 (V-15)
+    @State private var showSadPandaAlert = false
+    /// 磁盘空间不足警告
+    @State private var showDiskFullAlert = false
+    /// 隐私遮罩：App 失活时盖住界面，让 App 切换器拍到的是遮罩而不是内容
+    @State private var isPrivacyCovered = false
+    enum OnboardingStep {
+        case checking      // 检查状态中
+        case warning       // 18+ 警告
+        case rejected      // 拒绝 18+ 警告 (iOS 不能 exit, 显示永久阻断页)
+        case security      // 安全认证
+        case selectSite    // 站点选择
+        case login         // 登录页
+        case main          // 主界面
+    }
+
+    // MARK: - 同步计算初始页面 (消除白屏)
+    init() {
+        let settings = AppSettings.shared
+        let step: OnboardingStep
+        if settings.showWarning {
+            step = .warning
+        } else if settings.enableSecurity {
+            step = .security
+        } else if !settings.hasSelectedSite {
+            step = .selectSite
+        } else if settings.skipSignIn {
+            step = .main
+        } else {
+            // 先把钥匙串里的凭据同步放回 Cookie 罐再判断。
+            //
+            // 认证 Cookie 改成会话 Cookie 之后，进程重启时罐子里本来就是空的，
+            // 全靠 EhCookieManager.init 从钥匙串补回来。不主动碰一下这个单例，
+            // 它根本不会被创建 —— 下面这段就会读到空罐子，于是明明登录着，
+            // App 却停在登录页、配额也读不出来。
+            EhCookieManager.shared.ensureCredentialsRestored()
+
+            // 直接检查 Cookie 判断登录状态 (无需 @MainActor)
+            let cookies = HTTPCookieStorage.shared.cookies(for: URL(string: "https://e-hentai.org")!) ?? []
+            let hasAuth = cookies.contains { $0.name == "ipb_member_id" } &&
+                          cookies.contains { $0.name == "ipb_pass_hash" }
+            step = hasAuth ? .main : .login
+        }
+        _flowStep = State(initialValue: step)
+        // 同步初始化 appState 登录状态，避免首帧后异步 mutation 导致重渲染
+        let initState = AppState()
+        if step == .main {
+            initState.checkLoginStatus()
+            // 访客不再冒充已登录，门禁由 canEnterApp 判断
+        }
+        _appState = State(initialValue: initState)
+    }
+
+    var body: some View {
+        // ★ 主界面 + 引导层分离
+        //   - flowStep == .main/.checking → 直接显示主界面
+        //   - 其他 → 显示对应引导/登录页面
+        //   不使用 ZStack/opacity，消除不必要的 MainTabView 提前渲染
+        #if DEBUG
+        let _ = Self._printChanges()  // ★ 诊断: 精确显示哪个属性触发了 body 重新求值
+        #endif
+        let _ = NSLog("[RENDER] RootView body, flowStep=%@", String(describing: flowStep))
+        Group {
+            if flowStep == .main || flowStep == .checking {
+                MainTabView()
+                    .environment(appState)
+            } else {
+                onboardingOverlay
+            }
+        }
+        // 隐私遮罩必须在提示层之外、最上面一层：
+        // 系统在 App 失活的瞬间给界面拍快照，那张图会出现在 App 切换器里。
+        // 应用锁是「回来时要解锁」，挡不住这张已经拍好的缩略图。
+        .overlay {
+            if isPrivacyCovered {
+                ZStack {
+                    EhColor.background
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(EhColor.tertiaryLabel)
+                }
+                .ignoresSafeArea()
+                .transition(.opacity)
+            }
+        }
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.willResignActiveNotification)) { _ in
+            // 不要加动画：快照就在这一刻拍，淡入过程会被拍进去
+            if AppSettings.shared.enableSecureScreen { isPrivacyCovered = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.didBecomeActiveNotification)) { _ in
+            isPrivacyCovered = false
+        }
+        #endif
+        // 收藏/下载的轻提示层挂在根上，全 App 共用一个
+        .ehToastHost()
+        .withGlobalErrorBoundary()
+        // 已登录用户: 启动时异步获取资料 + ExH 检测 (不 mutate isSignedIn，不触发重渲染)
+        .task {
+            // 在 .task 中初始化 cachedColorScheme，打破 body 对 AppSettings.shared.theme 的直接观察
+            cachedColorScheme = Self.computeColorScheme()
+            // 已下载/已收藏的标记要在任何列表第一次画出来之前就备好，
+            // 否则首屏那几行永远是「没下载过」的样子
+            await GalleryStatusCache.shared.reload()
+            if appState.isSignedIn && !AppSettings.shared.skipSignIn {
+                await postLoginActions()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ehGuestModeEntered)) { _ in
+            flowStep = .main
+        }
+        .onChange(of: appState.isSignedIn) { _, isSignedIn in
+            if isSignedIn {
+                flowStep = .main
+                // 登录后异步任务：获取资料 + ExH 检测
+                if !AppSettings.shared.skipSignIn {
+                    Task { await postLoginActions() }
+                }
+            }
+        }
+        .alert("ExHentai 可用", isPresented: $showExHAlert) {
+            Button("切换到 ExHentai") {
+                AppSettings.shared.gallerySite = .exHentai
+                NotificationCenter.default.post(name: GalleryActionService.siteChangedNotification, object: nil)
+            }
+            Button("保持 E-Hentai", role: .cancel) {}
+        } message: {
+            Text("检测到你的账号拥有 ExHentai 访问权限，是否切换到 ExHentai？")
+        }
+        // Sad Panda / igneous 失效警告 (V-15)
+        .onReceive(NotificationCenter.default.publisher(for: .ehSadPandaDetected)) { _ in
+            showSadPandaAlert = true
+        }
+        // 磁盘空间不足警告
+        .onReceive(NotificationCenter.default.publisher(for: .ehDiskFull)) { _ in
+            showDiskFullAlert = true
+        }
+        .alert("磁盘空间不足", isPresented: $showDiskFullAlert) {
+            Button("我知道了", role: .cancel) {}
+        } message: {
+            Text("磁盘剩余空间不足，所有下载已自动暂停。\n请前往系统设置释放存储空间后，手动恢复下载。")
+        }
+        .alert("ExHentai 访问失效", isPresented: $showSadPandaAlert) {
+            Button("重新登录") {
+                AppSettings.shared.gallerySite = .eHentai
+                NotificationCenter.default.post(name: GalleryActionService.siteChangedNotification, object: nil)
+                appState.isSignedIn = false
+                flowStep = .login
+            }
+            Button("切换到 E-Hentai", role: .cancel) {
+                AppSettings.shared.gallerySite = .eHentai
+                NotificationCenter.default.post(name: GalleryActionService.siteChangedNotification, object: nil)
+            }
+        } message: {
+            Text("igneous Cookie 已失效 (Sad Panda)，已自动清除。\n请重新登录以恢复 ExHentai 访问权限，或切换到 E-Hentai。")
+        }
+        // 对齐 Android: 深色模式支持 (Settings.KEY_THEME)
+        // 0=跟随系统, 1=浅色, 2=深色  (使用 cachedColorScheme 避免 body 直接读 AppSettings)
+        .preferredColorScheme(cachedColorScheme)
+        // 强调色提到根视图：引导流程（站点选择、18+ 警告、登录）在
+        // MainTabView 之外，此前不受它的 .tint 影响，第一屏还是系统蓝
+        .tint(EhColor.accent)
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            // 记录进入后台的时间
+            // Fix: 安全认证中不记录 — FaceID/密码对话框会触发 willResignActive
+            // 但这不是真正的后台切换，不应触发重新认证
+            if flowStep != .security {
+                backgroundTime = Date()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            // 检查是否需要重新认证
+            checkSecurityOnResume()
+            // 检查剪贴板中的画廊链接 (对齐 Android MainActivity.onResume)
+            checkClipboardForGalleryUrl()
+        }
+        #elseif os(macOS)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
+            if flowStep != .security {
+                backgroundTime = Date()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            checkSecurityOnResume()
+            checkClipboardForGalleryUrl()
+        }
+        #endif
+        .alert("检测到画廊链接", isPresented: $showClipboardAlert) {
+            Button("打开") {
+                if let gallery = clipboardGallery {
+                    NotificationCenter.default.post(
+                        name: .openGalleryFromClipboard,
+                        object: nil,
+                        userInfo: ["gid": gallery.gid, "token": gallery.token]
+                    )
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            if let gallery = clipboardGallery {
+                Text("剪贴板含有画廊链接 (GID: \(gallery.gid))，是否打开？")
+            }
+        }
+    }
+    
+    // MARK: - 引导覆盖层
+
+    @ViewBuilder
+    private var onboardingOverlay: some View {
+        switch flowStep {
+        case .warning:
+            WarningView(
+                onAccept: {
+                    AppSettings.shared.showWarning = false
+                    determineNextStep()
+                },
+                onReject: {
+                    #if os(macOS)
+                    NSApplication.shared.terminate(nil)
+                    #else
+                    flowStep = .rejected
+                    #endif
+                }
+            )
+
+        case .rejected:
+            VStack(spacing: 20) {
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.secondary)
+                Text("您已拒绝使用条款")
+                    .font(.title2.bold())
+                Text("请关闭应用。")
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+
+        case .security:
+            SecurityView(onAuthenticated: {
+                // Fix: 清除 backgroundTime，防止 FaceID 对话框触发的
+                // willResignActive 被 checkSecurityOnResume 误判为"从后台恢复"
+                // → 再次设 .security → 无限循环
+                backgroundTime = nil
+                determineNextStep()
+            })
+
+        case .selectSite:
+            SelectSiteView(onComplete: {
+                determineNextStep()
+            })
+
+        case .login:
+            LoginView()
+                .environment(appState)
+
+        case .checking, .main:
+            EmptyView()
+        }
+    }
+
+    // MARK: - 流程控制
+
+    /// 登录后异步操作：获取用户资料 + ExH 检测
+    private func postLoginActions() async {
+        // 1. 保存 UID
+        if let uid = EhCookieManager.shared.memberId {
+            AppSettings.shared.userId = uid
+        }
+
+        // 2. 获取用户资料
+        do {
+            let profile = try await EhAPI.shared.getProfile()
+            if let name = profile.displayName {
+                AppSettings.shared.displayName = name
+            }
+            if let avatar = profile.avatar {
+                AppSettings.shared.avatar = avatar
+            }
+        } catch {
+            debugLog("[RootView] 获取用户资料失败: \(error)")
+        }
+
+        // 3. ExH 可达性检测
+        do {
+            guard let url = URL(string: "https://exhentai.org/") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue(EhRequestBuilder.userAgent, forHTTPHeaderField: "User-Agent")
+            request.timeoutInterval = 10
+
+            let config = URLSessionConfiguration.default
+            config.httpCookieStorage = .shared
+            let exSession = URLSession(configuration: config)
+            let (data, response) = try await exSession.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode == 200, data.count >= 1000 {
+                // ExHentai 可访问 — 仅当用户尚未选择 ExHentai 时才提示
+                if AppSettings.shared.gallerySite != .exHentai {
+                    showExHAlert = true
+                }
+            }
+        } catch {
+            debugLog("[RootView] ExHentai 检测失败: \(error)")
+        }
+    }
+
+    /// 深色模式偏好 (对齐 Android: Settings.KEY_THEME)
+    /// 静态方法: 用于 .task 中初始化 cachedColorScheme，不在 body 中直接调用
+    private static func computeColorScheme() -> ColorScheme? {
+        switch AppSettings.shared.theme {
+        case 1: return .light
+        case 2: return .dark
+        default: return nil // 0: 跟随系统
+        }
+    }
+    
+    private func determineNextStep() {
+        let settings = AppSettings.shared
+        
+        // 1. 检查 18+ 警告
+        if settings.showWarning {
+            flowStep = .warning
+            return
+        }
+        
+        // 2. 检查安全认证 (仅在启用时)
+        if settings.enableSecurity && flowStep != .security {
+            // 首次进入或从后台恢复需要认证
+            if flowStep == .checking {
+                flowStep = .security
+                return
+            }
+        }
+        
+        // 3. 检查站点选择
+        if !settings.hasSelectedSite {
+            flowStep = .selectSite
+            return
+        }
+        
+        // 4. 检查登录状态
+        appState.checkLoginStatus()
+        
+        // 如果设置了跳过登录 (游客模式)，直接进入主界面
+        if appState.canEnterApp {
+            if false {  // 访客不再改写 isSignedIn
+            }
+            flowStep = .main
+        } else {
+            flowStep = .login
+        }
+    }
+    
+    private func checkSecurityOnResume() {
+        guard AppSettings.shared.enableSecurity else { return }
+        guard flowStep == .main || flowStep == .login else { return }
+        
+        // 检查是否超过安全延迟时间
+        if let bgTime = backgroundTime {
+            let delaySeconds = AppSettings.shared.securityDelay
+            let elapsed = Date().timeIntervalSince(bgTime)
+            
+            if elapsed > Double(delaySeconds) {
+                flowStep = .security
+            }
+        }
+        
+        backgroundTime = nil
+    }
+
+    /// 检查剪贴板中的画廊链接 (对齐 Android MainActivity.checkClipboardUrl)
+    private func checkClipboardForGalleryUrl() {
+        guard flowStep == .main else { return }
+
+        #if os(iOS)
+        // iOS 16+: 先用 detectPatterns 检测是否包含 URL，避免触发粘贴板隐私弹窗
+        if #available(iOS 16.0, *) {
+            Task {
+                do {
+                    let patterns: Set<PartialKeyPath<UIPasteboard.DetectedValues>> = [\.probableWebURL]
+                    let results = try await UIPasteboard.general.detectedPatterns(for: patterns)
+                    guard results.contains(\.probableWebURL) else { return }
+                    // 剪贴板确实包含 URL，再读取内容 (此时系统不会再弹隐私提示)
+                    await MainActor.run {
+                        readClipboardContent()
+                    }
+                } catch {
+                    // 检测失败则不读取
+                }
+            }
+        } else {
+            readClipboardContent()
+        }
+        #else
+        readClipboardContent()
+        #endif
+    }
+
+    /// 读取剪贴板内容并匹配画廊链接
+    private func readClipboardContent() {
+        #if os(iOS)
+        guard let content = UIPasteboard.general.string else { return }
+        #else
+        guard let content = NSPasteboard.general.string(forType: .string) else { return }
+        #endif
+
+        // 避免重复检测同一内容
+        guard content != lastClipboardContent else { return }
+        lastClipboardContent = content
+
+        // 匹配 EH 画廊 URL: https://e-hentai.org/g/GID/TOKEN/
+        let pattern = #"https?://(e-hentai|exhentai)\.org/g/(\d+)/([0-9a-f]{10})"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
+              match.numberOfRanges >= 4,
+              let gidRange = Range(match.range(at: 2), in: content),
+              let tokenRange = Range(match.range(at: 3), in: content),
+              let gid = Int64(content[gidRange]) else { return }
+
+        let token = String(content[tokenRange])
+        clipboardGallery = (gid: gid, token: token)
+        showClipboardAlert = true
+    }
+}
+
+extension Notification.Name {
+    /// 用户选择了访客模式。此前靠把 isSignedIn 写成 true 来驱动流程推进，
+    /// 那会让「我的」页误显示为已登录；改用显式通知。
+    static let ehGuestModeEntered = Notification.Name("EhGuestModeEntered")
+}
+
+// MARK: - 全局应用状态
+
+@MainActor
+@Observable
+final class AppState {
+    /// 是否持有有效的登录 Cookie。
+    ///
+    /// 访客模式**不**置这个标志——此前访客会把它设成 true 以通过引导门禁，
+    /// 结果「我的」页显示「已登录」、点账号也没有登录入口。
+    /// 引导门禁改用 `canEnterApp` 判断。
+    var isSignedIn = false
+
+    /// 访客模式（跳过登录）。与 isSignedIn 互斥语义：一个是「登录了」，
+    /// 一个是「明确选择不登录」。
+    var isGuest: Bool { AppSettings.shared.skipSignIn && !isSignedIn }
+
+    /// 能否进入主界面：登录了，或明确选择了访客
+    var canEnterApp: Bool { isSignedIn || AppSettings.shared.skipSignIn }
+    var currentSite: SiteChoice = .eHentai
+
+    enum SiteChoice: Int {
+        case eHentai = 0
+        case exHentai = 1
+    }
+
+    func checkLoginStatus() {
+        // 检查 Cookie 是否存在
+        let cookies = HTTPCookieStorage.shared.cookies(for: URL(string: "https://e-hentai.org")!) ?? []
+        let hasMemberId = cookies.contains { $0.name == "ipb_member_id" }
+        let hasPassHash = cookies.contains { $0.name == "ipb_pass_hash" }
+        let newValue = hasMemberId && hasPassHash
+        if newValue != isSignedIn {
+            isSignedIn = newValue  // ★ 仅在值变化时写入，避免 withMutation 触发无效重渲染
+        }
+
+        // Fix F1-3: 未登录时强制降级到 E-Hentai
+        // ⚠️ 已登录用户不再检查 igneous — igneous 仅在首次访问 exhentai.org 后才由服务器种下
+        // 与 Android 行为一致: 已登录即可自由切换到 ExHentai
+        if !isSignedIn && AppSettings.shared.gallerySite == .exHentai {
+            AppSettings.shared.gallerySite = .eHentai
+        }
+    }
+
+    func signOut() {
+        // 清除所有 EH 相关 Cookie
+        let domains = ["e-hentai.org", "exhentai.org", "forums.e-hentai.org"]
+        for domain in domains {
+            if let url = URL(string: "https://\(domain)") {
+                let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
+                for cookie in cookies {
+                    HTTPCookieStorage.shared.deleteCookie(cookie)
+                }
+            }
+        }
+        isSignedIn = false
+    }
+}
+
+#Preview {
+    RootView()
+}

@@ -1,0 +1,933 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		DC71559A2F3DAC4900D09B4E /* EhModels in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08112F3DA31000717C38 /* EhModels */; };
+		DC71559B2F3DAC4900D09B4E /* EhDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08122F3DA31000717C38 /* EhDatabase */; };
+		DC71559C2F3DAC4900D09B4E /* EhSettings in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08132F3DA31000717C38 /* EhSettings */; };
+		DC71559D2F3DAC4900D09B4E /* EhAPI in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08142F3DA31000717C38 /* EhAPI */; };
+		DC71559E2F3DAC4900D09B4E /* EhCookie in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08152F3DA31000717C38 /* EhCookie */; };
+		DC71559F2F3DAC4900D09B4E /* EhDNS in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08162F3DA31000717C38 /* EhDNS */; };
+		DC7155A02F3DAC4900D09B4E /* EhParser in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08172F3DA31000717C38 /* EhParser */; };
+		DC7155A12F3DAC4900D09B4E /* EhSpider in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08182F3DA31000717C38 /* EhSpider */; };
+		DC7155A22F3DAC4900D09B4E /* EhDownload in Frameworks */ = {isa = PBXBuildFile; productRef = DC4A08192F3DA31000717C38 /* EhDownload */; };
+		DC9A300D2F40A10100AABB0D /* EhDownloadWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DC9A30022F40A10100AABB02 /* EhDownloadWidget.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DC4A077A2F3DA21800717C38 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DC4A07602F3DA21800717C38 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DC4A07672F3DA21800717C38;
+			remoteInfo = "ehviewer apple";
+		};
+		DC4A07842F3DA21800717C38 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DC4A07602F3DA21800717C38 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DC4A07672F3DA21800717C38;
+			remoteInfo = "ehviewer apple";
+		};
+		DC9A30082F40A10100AABB08 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DC4A07602F3DA21800717C38 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DC9A30012F40A10100AABB01;
+			remoteInfo = EhDownloadWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		DC9A30072F40A10100AABB07 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				DC9A300D2F40A10100AABB0D /* EhDownloadWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		DC4A07682F3DA21800717C38 /* ehviewer apple.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ehviewer apple.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC4A07792F3DA21800717C38 /* ehviewer appleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ehviewer appleTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC4A07832F3DA21800717C38 /* ehviewer appleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ehviewer appleUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC9A30022F40A10100AABB02 /* EhDownloadWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EhDownloadWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DC4A078B2F3DA21800717C38 /* Exceptions for "ehviewer apple" folder in "ehviewer apple" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"ehviewer appleTests/AndroidUpstreamAlignmentTests.swift",
+				"ehviewer appleTests/CredentialStorageTests.swift",
+				"ehviewer appleTests/GalleryFilterTests.swift",
+				"ehviewer appleTests/LaunchTabTests.swift",
+				"ehviewer appleTests/PaginationAndSearchTests.swift",
+				"ehviewer appleTests/TopListParsingTests.swift",
+				"ehviewer appleTests/ProxySettingsTests.swift",
+				"ehviewer appleTests/ReaderStallTests.swift",
+				"ehviewer appleTests/ehviewer_appleTests.swift",
+				Info.plist,
+			);
+			target = DC4A07672F3DA21800717C38 /* ehviewer apple */;
+		};
+		DC8DF28F2F408402005EFEC2 /* Exceptions for "ehviewer apple" folder in "ehviewer appleTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"ehviewer appleTests/AndroidUpstreamAlignmentTests.swift",
+				"ehviewer appleTests/CredentialStorageTests.swift",
+				"ehviewer appleTests/GalleryFilterTests.swift",
+				"ehviewer appleTests/LaunchTabTests.swift",
+				"ehviewer appleTests/PaginationAndSearchTests.swift",
+				"ehviewer appleTests/TopListParsingTests.swift",
+				"ehviewer appleTests/ProxySettingsTests.swift",
+				"ehviewer appleTests/ReaderStallTests.swift",
+				"ehviewer appleTests/ehviewer_appleTests.swift",
+			);
+			target = DC4A07782F3DA21800717C38 /* ehviewer appleTests */;
+		};
+		DC9A300E2F40A10100AABB0E /* Exceptions for "EhDownloadWidget" folder in "EhDownloadWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DC9A30012F40A10100AABB01 /* EhDownloadWidget */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		DC4A076A2F3DA21800717C38 /* ehviewer apple */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DC4A078B2F3DA21800717C38 /* Exceptions for "ehviewer apple" folder in "ehviewer apple" target */,
+				DC8DF28F2F408402005EFEC2 /* Exceptions for "ehviewer apple" folder in "ehviewer appleTests" target */,
+			);
+			path = "ehviewer apple";
+			sourceTree = "<group>";
+		};
+		DC4A07862F3DA21800717C38 /* ehviewer appleUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "ehviewer appleUITests";
+			sourceTree = "<group>";
+		};
+		DC9A30032F40A10100AABB03 /* EhDownloadWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DC9A300E2F40A10100AABB0E /* Exceptions for "EhDownloadWidget" folder in "EhDownloadWidget" target */,
+			);
+			path = EhDownloadWidget;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DC4A07652F3DA21800717C38 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DC7155A22F3DAC4900D09B4E /* EhDownload in Frameworks */,
+				DC7155A12F3DAC4900D09B4E /* EhSpider in Frameworks */,
+				DC7155A02F3DAC4900D09B4E /* EhParser in Frameworks */,
+				DC71559F2F3DAC4900D09B4E /* EhDNS in Frameworks */,
+				DC71559E2F3DAC4900D09B4E /* EhCookie in Frameworks */,
+				DC71559D2F3DAC4900D09B4E /* EhAPI in Frameworks */,
+				DC71559C2F3DAC4900D09B4E /* EhSettings in Frameworks */,
+				DC71559B2F3DAC4900D09B4E /* EhDatabase in Frameworks */,
+				DC71559A2F3DAC4900D09B4E /* EhModels in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC4A07762F3DA21800717C38 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC4A07802F3DA21800717C38 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC9A30042F40A10100AABB04 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DC4A075F2F3DA21800717C38 = {
+			isa = PBXGroup;
+			children = (
+				DC4A076A2F3DA21800717C38 /* ehviewer apple */,
+				DC9A30032F40A10100AABB03 /* EhDownloadWidget */,
+				DC4A07862F3DA21800717C38 /* ehviewer appleUITests */,
+				DC4A07692F3DA21800717C38 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DC4A07692F3DA21800717C38 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DC4A07682F3DA21800717C38 /* ehviewer apple.app */,
+				DC4A07792F3DA21800717C38 /* ehviewer appleTests.xctest */,
+				DC4A07832F3DA21800717C38 /* ehviewer appleUITests.xctest */,
+				DC9A30022F40A10100AABB02 /* EhDownloadWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DC4A07672F3DA21800717C38 /* ehviewer apple */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC4A078C2F3DA21800717C38 /* Build configuration list for PBXNativeTarget "ehviewer apple" */;
+			buildPhases = (
+				DC4A07642F3DA21800717C38 /* Sources */,
+				DC4A07652F3DA21800717C38 /* Frameworks */,
+				DC4A07662F3DA21800717C38 /* Resources */,
+				DC9A30072F40A10100AABB07 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC9A30092F40A10100AABB09 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				DC4A076A2F3DA21800717C38 /* ehviewer apple */,
+			);
+			name = "ehviewer apple";
+			packageProductDependencies = (
+				DC4A08112F3DA31000717C38 /* EhModels */,
+				DC4A08122F3DA31000717C38 /* EhDatabase */,
+				DC4A08132F3DA31000717C38 /* EhSettings */,
+				DC4A08142F3DA31000717C38 /* EhAPI */,
+				DC4A08152F3DA31000717C38 /* EhCookie */,
+				DC4A08162F3DA31000717C38 /* EhDNS */,
+				DC4A08172F3DA31000717C38 /* EhParser */,
+				DC4A08182F3DA31000717C38 /* EhSpider */,
+				DC4A08192F3DA31000717C38 /* EhDownload */,
+			);
+			productName = "ehviewer apple";
+			productReference = DC4A07682F3DA21800717C38 /* ehviewer apple.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DC4A07782F3DA21800717C38 /* ehviewer appleTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC4A07912F3DA21800717C38 /* Build configuration list for PBXNativeTarget "ehviewer appleTests" */;
+			buildPhases = (
+				DC4A07752F3DA21800717C38 /* Sources */,
+				DC4A07762F3DA21800717C38 /* Frameworks */,
+				DC4A07772F3DA21800717C38 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC4A077B2F3DA21800717C38 /* PBXTargetDependency */,
+			);
+			name = "ehviewer appleTests";
+			packageProductDependencies = (
+			);
+			productName = "ehviewer appleTests";
+			productReference = DC4A07792F3DA21800717C38 /* ehviewer appleTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DC4A07822F3DA21800717C38 /* ehviewer appleUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC4A07942F3DA21800717C38 /* Build configuration list for PBXNativeTarget "ehviewer appleUITests" */;
+			buildPhases = (
+				DC4A077F2F3DA21800717C38 /* Sources */,
+				DC4A07802F3DA21800717C38 /* Frameworks */,
+				DC4A07812F3DA21800717C38 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC4A07852F3DA21800717C38 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				DC4A07862F3DA21800717C38 /* ehviewer appleUITests */,
+			);
+			name = "ehviewer appleUITests";
+			packageProductDependencies = (
+			);
+			productName = "ehviewer appleUITests";
+			productReference = DC4A07832F3DA21800717C38 /* ehviewer appleUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		DC9A30012F40A10100AABB01 /* EhDownloadWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC9A300C2F40A10100AABB0C /* Build configuration list for PBXNativeTarget "EhDownloadWidget" */;
+			buildPhases = (
+				DC9A30052F40A10100AABB05 /* Sources */,
+				DC9A30042F40A10100AABB04 /* Frameworks */,
+				DC9A30062F40A10100AABB06 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				DC9A30032F40A10100AABB03 /* EhDownloadWidget */,
+			);
+			name = EhDownloadWidget;
+			packageProductDependencies = (
+			);
+			productName = EhDownloadWidget;
+			productReference = DC9A30022F40A10100AABB02 /* EhDownloadWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DC4A07602F3DA21800717C38 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					DC4A07672F3DA21800717C38 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					DC4A07782F3DA21800717C38 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = DC4A07672F3DA21800717C38;
+					};
+					DC4A07822F3DA21800717C38 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = DC4A07672F3DA21800717C38;
+					};
+					DC9A30012F40A10100AABB01 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+				};
+			};
+			buildConfigurationList = DC4A07632F3DA21800717C38 /* Build configuration list for PBXProject "ehviewer apple" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = DC4A075F2F3DA21800717C38;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				DC4A08012F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhCore" */,
+				DC4A08022F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhNetwork" */,
+				DC4A08032F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhParser" */,
+				DC4A08042F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhSpider" */,
+				DC4A08052F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhDownload" */,
+				DC4A08062F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhUI" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DC4A07692F3DA21800717C38 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DC4A07672F3DA21800717C38 /* ehviewer apple */,
+				DC4A07782F3DA21800717C38 /* ehviewer appleTests */,
+				DC4A07822F3DA21800717C38 /* ehviewer appleUITests */,
+				DC9A30012F40A10100AABB01 /* EhDownloadWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DC4A07662F3DA21800717C38 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC4A07772F3DA21800717C38 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC4A07812F3DA21800717C38 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC9A30062F40A10100AABB06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DC4A07642F3DA21800717C38 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC4A07752F3DA21800717C38 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC4A077F2F3DA21800717C38 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC9A30052F40A10100AABB05 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DC4A077B2F3DA21800717C38 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DC4A07672F3DA21800717C38 /* ehviewer apple */;
+			targetProxy = DC4A077A2F3DA21800717C38 /* PBXContainerItemProxy */;
+		};
+		DC4A07852F3DA21800717C38 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DC4A07672F3DA21800717C38 /* ehviewer apple */;
+			targetProxy = DC4A07842F3DA21800717C38 /* PBXContainerItemProxy */;
+		};
+		DC9A30092F40A10100AABB09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = DC9A30012F40A10100AABB01 /* EhDownloadWidget */;
+			targetProxy = DC9A30082F40A10100AABB08 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		DC4A078D2F3DA21800717C38 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "ehviewer apple/ehviewer_apple.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ehviewer apple/Info.plist";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-apple";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		DC4A078E2F3DA21800717C38 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "ehviewer apple/ehviewer_apple.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ehviewer apple/Info.plist";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-apple";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		DC4A078F2F3DA21800717C38 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		DC4A07902F3DA21800717C38 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		DC4A07922F3DA21800717C38 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-appleTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ehviewer apple.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ehviewer apple";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		DC4A07932F3DA21800717C38 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-appleTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ehviewer apple.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ehviewer apple";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		DC4A07952F3DA21800717C38 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-appleUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = "ehviewer apple";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		DC4A07962F3DA21800717C38 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-appleUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = "ehviewer apple";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		DC9A300A2F40A10100AABB0A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EhDownloadWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = EhDownloadWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-apple.EhDownloadWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DC9A300B2F40A10100AABB0B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HWZEUNLCY6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EhDownloadWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = EhDownloadWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "Stellatrix.ehviewer-apple.EhDownloadWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DC4A07632F3DA21800717C38 /* Build configuration list for PBXProject "ehviewer apple" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC4A078F2F3DA21800717C38 /* Debug */,
+				DC4A07902F3DA21800717C38 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DC4A078C2F3DA21800717C38 /* Build configuration list for PBXNativeTarget "ehviewer apple" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC4A078D2F3DA21800717C38 /* Debug */,
+				DC4A078E2F3DA21800717C38 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DC4A07912F3DA21800717C38 /* Build configuration list for PBXNativeTarget "ehviewer appleTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC4A07922F3DA21800717C38 /* Debug */,
+				DC4A07932F3DA21800717C38 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DC4A07942F3DA21800717C38 /* Build configuration list for PBXNativeTarget "ehviewer appleUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC4A07952F3DA21800717C38 /* Debug */,
+				DC4A07962F3DA21800717C38 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DC9A300C2F40A10100AABB0C /* Build configuration list for PBXNativeTarget "EhDownloadWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC9A300A2F40A10100AABB0A /* Debug */,
+				DC9A300B2F40A10100AABB0B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		DC4A08012F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/EhCore;
+		};
+		DC4A08022F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhNetwork" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/EhNetwork;
+		};
+		DC4A08032F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhParser" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/EhParser;
+		};
+		DC4A08042F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhSpider" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/EhSpider;
+		};
+		DC4A08052F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhDownload" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/EhDownload;
+		};
+		DC4A08062F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/EhUI;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DC4A08112F3DA31000717C38 /* EhModels */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08012F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhCore" */;
+			productName = EhModels;
+		};
+		DC4A08122F3DA31000717C38 /* EhDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08012F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhCore" */;
+			productName = EhDatabase;
+		};
+		DC4A08132F3DA31000717C38 /* EhSettings */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08012F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhCore" */;
+			productName = EhSettings;
+		};
+		DC4A08142F3DA31000717C38 /* EhAPI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08022F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhNetwork" */;
+			productName = EhAPI;
+		};
+		DC4A08152F3DA31000717C38 /* EhCookie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08022F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhNetwork" */;
+			productName = EhCookie;
+		};
+		DC4A08162F3DA31000717C38 /* EhDNS */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08022F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhNetwork" */;
+			productName = EhDNS;
+		};
+		DC4A08172F3DA31000717C38 /* EhParser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08032F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhParser" */;
+			productName = EhParser;
+		};
+		DC4A08182F3DA31000717C38 /* EhSpider */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08042F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhSpider" */;
+			productName = EhSpider;
+		};
+		DC4A08192F3DA31000717C38 /* EhDownload */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DC4A08052F3DA30000717C38 /* XCLocalSwiftPackageReference "Packages/EhDownload" */;
+			productName = EhDownload;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = DC4A07602F3DA21800717C38 /* Project object */;
+}
