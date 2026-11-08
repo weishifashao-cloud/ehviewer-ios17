@@ -83,12 +83,8 @@ struct GalleryCommentsView: View {
             HangProbe.shared.pushContext("评论列表")
             guard !seeded else { return }
             seeded = true
-            // 同预览页：把「建列表」从转场那一帧里挪出去，先让 push 推完。
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(80))
-                probe("评论·首次装载") {
-                    vm.setInitialComments(initialComments, hasMore: hasMore)
-                }
+            probe("评论·首次装载") {
+                vm.setInitialComments(initialComments, hasMore: hasMore)
             }
         }
         .onDisappear { HangProbe.shared.popContext("评论列表") }
