@@ -1250,8 +1250,12 @@ class ReaderViewModel {
         let forward = lastPreloadAnchor.map { page >= $0 } ?? true
         lastPreloadAnchor = page
 
-        // 顺着阅读方向多铺，逆向只留少量回看余量
-        let ahead = forward ? budget : max(1, budget / 3)
+        // 「后面三页」是硬指标：不管预算多大、也不管当前是往前翻还是往回翻，
+        // 当前页的 +1/+2/+3 永远要被优先取回。这样连续往下看时，
+        // 翻到下一页它已经在内存里了，不用等转圈。
+        let urgentAhead = 3
+        // 顺着阅读方向多铺，逆向时也仍然保证这 3 页
+        let ahead = max(urgentAhead, forward ? budget : budget / 3)
         // ★ 回看余量至少 2 页。
         //
         //   preload 是分批跑的，每批之间会检查取消——翻页一快，onPageChange 就把
@@ -1285,6 +1289,17 @@ class ReaderViewModel {
             }
         guard !candidates.isEmpty else { return }
 
+        // ★ 后三页单独提到队首。
+        //
+        // 只按「距离」排序是不够的：第 -1 页（刚看过的）和 +1 页距离都是 1，
+        // 逆向翻页时甚至 -1 排前面，于是真正要看的 +1 被挤到后面，
+        // 连续翻页就一页一停。这里把 page+1…page+3 抽出来放到最前，
+        // 第一批并发（batchSize = 6）一定先把它们发出去。
+        let urgentPages = Set((1...urgentAhead).map { page + $0 })
+        let urgent = candidates.filter { urgentPages.contains($0) }
+        let rest = candidates.filter { !urgentPages.contains($0) }
+        let queue = urgent + rest
+
         // 分批而不是一次性全丢进 TaskGroup:
         // 全量并发时第 6 页可能比第 1 页先回来，用户等的恰恰是第 1 页。
         //
@@ -1292,9 +1307,9 @@ class ReaderViewModel {
         // 原来只用 3 条，另外 3 条一直空着。提到 6 之后，默认预加载窗口（5 页）
         // 从「3+2 两轮」压成一轮并发，翻页等的是最慢那一张，而不是两轮之和。
         let batchSize = 6
-        for chunk in stride(from: 0, to: candidates.count, by: batchSize) {
+        for chunk in stride(from: 0, to: queue.count, by: batchSize) {
             if Task.isCancelled { return }
-            let batch = candidates[chunk..<min(chunk + batchSize, candidates.count)]
+            let batch = queue[chunk..<min(chunk + batchSize, queue.count)]
             await withTaskGroup(of: Void.self) { group in
                 for p in batch {
                     group.addTask { [weak self] in
