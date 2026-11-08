@@ -113,7 +113,18 @@ struct GalleryDetailView: View {
                     .padding(.trailing, 12)
             }
         }
-        .enableEdgeSwipeBack()
+        // ⚠️ 这里刻意**不再**挂 .enableEdgeSwipeBack()。
+        //
+        //   它是为了「隐藏导航栏后仍能边缘滑回」而加的，但实现方式是替换
+        //   interactivePopGestureRecognizer 的 delegate，并给 UINavigationController
+        //   加进程级的手势代理扩展 —— 这是 iOS 17 的已知雷区：
+        //   该页 push 到「全部预览 / 评论」时，UIKit 的转场状态机会被搅乱，
+        //   push 停在半路、整屏不再接收触摸；切到后台再回来就等于重新启动
+        //   （进程已被看门狗杀掉，见两份 .ips 的 0x8badf00d）。
+        //   参考 developer.apple.com/forums/thread/745986 与 thread/745040。
+        //
+        //   代价：这一页不再支持边缘滑动返回，左上角的返回按钮照常可用。
+        //   要恢复的话请用「自绘边缘手势」，不要再碰系统的手势代理。
         #endif
         #if os(iOS)
         .fullScreenCover(item: $vm.readerLaunchItem) { item in

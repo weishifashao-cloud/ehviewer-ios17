@@ -59,16 +59,13 @@ struct AppBackButton: View {
 
 /// 修复 SwiftUI 隐藏原生返回按钮后边缘滑动返回手势失效的问题
 ///
-/// 原理: 在 UINavigationController 上重新启用 interactivePopGestureRecognizer
-/// 并将其 delegate 替换为自定义实现，确保在任何自定义导航栏下都能滑动返回
-///
 /// 使用方式:
 /// ```swift
-/// NavigationStack {
-///     content
-/// }
-/// .enableEdgeSwipeBack()
+/// NavigationStack { content }
+///     .enableEdgeSwipeBack()
 /// ```
+///
+/// ⚠️ iOS 17 上默认不要再挂这个修饰符（见 GalleryDetailView 的说明）。
 #if os(iOS)
 struct EdgeSwipeBackModifier: ViewModifier {
     func body(content: Content) -> some View {
@@ -77,57 +74,49 @@ struct EdgeSwipeBackModifier: ViewModifier {
     }
 }
 
-/// UIKit 辅助视图 — 查找最近的 UINavigationController 并启用滑动返回
 private struct EdgeSwipeBackHelper: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
         EdgeSwipeBackViewController()
     }
-    
+
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
+/// 只做一件事：系统把 interactivePopGestureRecognizer 关掉了，就把它重新打开。
+///
+/// ⚠️ 绝对不能改它的 delegate。
+///
+/// 原实现把 `interactivePopGestureRecognizer.delegate` 换成了 UINavigationController
+/// 自己，并给 UINavigationController 加了一个**进程级**的
+/// `UIGestureRecognizerDelegate` 扩展。这是 iOS 17 的已知雷区：
+///
+///   · 隐藏导航栏的页面替换 pop 手势的 delegate 后，从子页滑回、再进入子页，
+///     界面冻住；iOS 16 正常，仅 17 复现。
+///     developer.apple.com/forums/thread/745986
+///   · 同帖解答：「控制器会被带到一个它本不该处理的状态，把**下一次导航操作**
+///     的转场搞坏，表现为冻住，直到切到后台再切回来才好。」
+///     developer.apple.com/forums/thread/745040
+///   · stackoverflow.com/a/77380861 、 davdroman/swiftui-navigation-transitions#100
+///
+/// 系统原本那份 delegate 还负责「正在转场就不要开始 pop」「bar 正在隐藏」等
+/// 边界判断；换成自己那句 `viewControllers.count > 1` 之后，这些保护全丢了。
 private class EdgeSwipeBackViewController: UIViewController {
+    /// 已经处理过的导航控制器，避免重复设置
+    private weak var configuredNav: UINavigationController?
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        enableInteractivePopGesture()
+        reenablePopGestureIfNeeded()
     }
-    
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        enableInteractivePopGesture()
-    }
-    
-    private func enableInteractivePopGesture() {
+
+    private func reenablePopGestureIfNeeded() {
         guard let nav = navigationController else { return }
-        // 仅在有多个视图控制器时启用 (栈顶不需要)
+        // 转场进行中一律不碰导航控制器的状态
+        guard nav.transitionCoordinator == nil else { return }
         guard nav.viewControllers.count > 1 else { return }
-        // 如果 delegate 已被清除或是系统默认的，替换为允许手势的 delegate
-        if nav.interactivePopGestureRecognizer?.isEnabled == false {
-            nav.interactivePopGestureRecognizer?.isEnabled = true
-        }
-        // 确保手势识别器的 delegate 不会阻止手势
-        if nav.interactivePopGestureRecognizer?.delegate !== nav {
-            nav.interactivePopGestureRecognizer?.delegate = nav
-        }
-    }
-}
-
-// MARK: - UINavigationController + InteractivePopGesture
-
-/// 让 UINavigationController 自身作为滑动返回手势的 delegate
-/// 这样即使隐藏了原生返回按钮，边缘滑动返回依然有效
-extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
-    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        // 导航栈只有一个 VC 时禁止滑动 (没有上一页可返回)
-        viewControllers.count > 1
-    }
-    
-    public func gestureRecognizer(
-        _ gestureRecognizer: UIGestureRecognizer,
-        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
-    ) -> Bool {
-        // 允许与其他手势同时识别，避免冲突
-        false
+        guard configuredNav !== nav else { return }
+        configuredNav = nav
+        nav.interactivePopGestureRecognizer?.isEnabled = true
     }
 }
 #endif
