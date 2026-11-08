@@ -268,7 +268,7 @@ struct GalleryListView: View {
             let favorited = userInfo["favorited"] as? Bool ?? false
             let slot = userInfo["slot"] as? Int ?? -1
             if let index = viewModel.galleries.firstIndex(where: { $0.gid == gid }) {
-                viewModel.galleries[index].favoriteSlot = favorited ? slot : -1
+                viewModel.setFavoriteSlot(at: index, slot: favorited ? slot : -1)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: GalleryActionService.siteChangedNotification)) { _ in
@@ -1473,28 +1473,25 @@ class GalleryListViewModel {
     /// 过滤在 didSet 里做，而不是在那 8 处赋值点上分别调一次：
     /// 分散写就意味着以后新增一条取数路径必然会漏掉，而「漏掉」的表现
     /// 是屏蔽悄悄失效——用户根本看不出来是哪一页没生效。
+    /// 列表内容。**写进来的东西会先过一遍过滤器。**
+    ///
+    /// 过滤在 didSet 里做，而不是在那 8 处赋值点上分别调一次：
+    /// 分散写就意味着以后新增一条取数路径必然会漏掉，而「漏掉」的表现
+    /// 是屏蔽悄悄失效——用户根本看不出来是哪一页没生效。
+    ///
+    /// ⚠️ 只能**整体赋值**。禁止 `append` / `removeAll` / `galleries[i] = x`
+    /// 这类原地修改：它们走属性的 `_modify` 访问器，而下面的 didSet 会对
+    /// 同一属性取 `inout`，形成「一次写访问尚未收尾时又嵌套一次写访问」。
+    /// Swift 的独占性检查会在这里直接 trap，崩溃栈表现为
+    /// `GalleryListViewModel._galleries.modify` + `EXC_BREAKPOINT (SIGTRAP)`
+    /// ——已由 iOS 17.3.1 真机崩溃日志确认（2026-11-08）。见 mergeUnique()。
     var galleries: [GalleryInfo] = [] {
         didSet {
             // 里面还会再写一次 galleries，靠这个标记挡住重入
             guard !isApplyingFilters else { return }
             isApplyingFilters = true
             defer { isApplyingFilters = false }
-
-            // ★ 不要对 self.galleries 取 inout。
-            //
-            //   didSet 正在观察这个属性，再把它的存储地址交给 apply(to:) 属于
-            //  「观察者内改写被观察者自身」。首屏加载走整体赋值（set 访问器），
-            //   触底分页走 append（modify 访问器），两者进入存储的路径不同：
-            //   后者在 modify 访问尚未结束时又会嵌套一次写访问，属于 Swift
-            //   独占性访问（exclusivity）的灰色地带，表现为「首屏正常、滑到底崩」。
-            //
-            //   改为先拷副本、过滤完再整体赋回：语义完全等价，
-            //   但不再有对同一存储的嵌套写访问。
-            var filtered = galleries
-            let hidden = GalleryFilterEngine.shared.apply(to: &filtered)
-            if hidden > 0 {
-                galleries = filtered   // 这次写入会被上面的 isApplyingFilters 挡住，不会递归
-            }
+            let hidden = GalleryFilterEngine.shared.apply(to: &galleries)
             filteredOutCount = hidden
         }
     }
@@ -1901,6 +1898,17 @@ class GalleryListViewModel {
         }
     }
 
+    /// 更新某一行的收藏夹槽位。
+    ///
+    /// 走「拷贝 → 改 → 整体赋回」，不用 `galleries[index].x = ...`：
+    /// 下标写同样经过 `_modify`，会踩 mergeUnique() 里记录的那个独占性陷阱。
+    func setFavoriteSlot(at index: Int, slot: Int) {
+        guard galleries.indices.contains(index) else { return }
+        var copy = galleries
+        copy[index].favoriteSlot = slot
+        galleries = copy
+    }
+
     /// 把新一页合并进列表：全量去重（已有 + 页内），返回真正新增的条数。
     ///
     /// 两个分页入口（href 翻页与 page=N 兜底）都必须走这里。
@@ -1915,7 +1923,12 @@ class GalleryListViewModel {
             unique.append(g)
         }
         if !unique.isEmpty {
-            galleries.append(contentsOf: unique)
+            // ★ 必须整体赋值，不能 append。
+            //   append 走属性的 `_modify` 访问器，didSet 里的 apply(to: &galleries)
+            //   会在同一次写访问收尾前再取一次 inout，触发 Swift 独占性检查陷阱。
+            //   真机崩溃栈：GalleryListViewModel._galleries.modify ← loadMore(mode:)，
+            //   异常类型 EXC_BREAKPOINT / SIGTRAP，iOS 17.3.1。
+            galleries = galleries + unique
         }
         return unique.count
     }
