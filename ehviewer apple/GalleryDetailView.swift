@@ -42,6 +42,7 @@ struct GalleryDetailView: View {
     @State private var showAllTags = false
     @State private var showRatingSheet = false
     @State private var showAllPreviews = false
+    @State private var showAllComments = false
     @State private var showFavoritePicker = false
     @State private var showArchive = false
     /// 归档与种子合并后的资源入口 sheet
@@ -125,6 +126,24 @@ struct GalleryDetailView: View {
         //
         //   代价：这一页不再支持边缘滑动返回，左上角的返回按钮照常可用。
         //   要恢复的话请用「自绘边缘手势」，不要再碰系统的手势代理。
+        #endif
+        // 「查看全部预览 / 更多评论」改成**模态**呈现，不再走导航栈的 push。
+        //
+        // 依据：同一个页面上，标签用的是 NavigationLink(value:)（值式），
+        // 一直正常；而预览/评论用的是 NavigationLink { 目的地 }（视图式），
+        // 一次都进不去。两者唯一的差别就在这里 —— 值式链接交给
+        // .navigationDestination(for:) 在栈层解析，视图式链接则由 SwiftUI
+        // 在栈里塞一个不透明的条目。详情页本身已经是被 push 进来的，
+        // 在它内部再发一次视图式 push，iOS 17 上转场会推不完：
+        // 界面停在半路、不再接收触摸，随后被看门狗杀掉（两份 .ips 的 0x8badf00d）。
+        //
+        // 换成 fullScreenCover 后完全绕开导航栈的转场，代价是多一个「关闭」按钮。
+        #if os(iOS)
+        .fullScreenCover(isPresented: $showAllPreviews) { previewsCover }
+        .fullScreenCover(isPresented: $showAllComments) { commentsCover }
+        #else
+        .sheet(isPresented: $showAllPreviews) { previewsCover }
+        .sheet(isPresented: $showAllComments) { commentsCover }
         #endif
         #if os(iOS)
         .fullScreenCover(item: $vm.readerLaunchItem) { item in
@@ -726,18 +745,13 @@ struct GalleryDetailView: View {
                 Spacer()
                 // 查看全部预览按钮
                 if vm.previewPages > 1 {
-                    NavigationLink {
-                        GalleryPreviewsView(
-                            gid: gallery.gid,
-                            token: gallery.token,
-                            totalPages: vm.previewPages,
-                            galleryPages: vm.detail?.info.pages ?? gallery.pages,
-                            initialPreviewSet: previewSet
-                        )
+                    Button {
+                        showAllPreviews = true
                     } label: {
                         Text("查看全部 (\(vm.detail?.info.pages ?? gallery.pages)张)")
                             .font(.subheadline)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -803,14 +817,8 @@ struct GalleryDetailView: View {
 
             // ★ 底部额外的「查看全部」按钮 — 方便用户滚动到底部后直接点击
             if vm.previewPages > 1 {
-                NavigationLink {
-                    GalleryPreviewsView(
-                        gid: gallery.gid,
-                        token: gallery.token,
-                        totalPages: vm.previewPages,
-                        galleryPages: vm.detail?.info.pages ?? gallery.pages,
-                        initialPreviewSet: previewSet
-                    )
+                Button {
+                    showAllPreviews = true
                 } label: {
                     Text("查看全部预览 (\(vm.detail?.info.pages ?? gallery.pages)张)")
                         .font(.subheadline)
@@ -819,6 +827,7 @@ struct GalleryDetailView: View {
                         .background(Color(.tertiarySystemFill))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
+                .buttonStyle(.plain)
                 .padding(.horizontal)
             }
         }
@@ -840,19 +849,13 @@ struct GalleryDetailView: View {
                 Spacer()
                 // 超过2条时显示"更多评论"
                 if hasMore {
-                    NavigationLink {
-                        GalleryCommentsView(
-                            gid: gallery.gid,
-                            token: gallery.token,
-                            apiUid: vm.detail?.apiUid ?? -1,
-                            apiKey: vm.detail?.apiKey ?? "",
-                            initialComments: vm.comments,
-                            hasMore: vm.hasMoreComments
-                        )
+                    Button {
+                        showAllComments = true
                     } label: {
                         Text("更多评论")
                             .font(.subheadline)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -891,6 +894,49 @@ struct GalleryDetailView: View {
             }
         }
         .padding(.bottom, 16)
+    }
+
+    // MARK: - 预览 / 评论（模态呈现）
+
+    /// 「查看全部预览」。外面套一层 NavigationStack，是为了让 GalleryPreviewsView
+    /// 自己的 .navigationTitle / .toolbar（跳页按钮）照常工作。
+    @ViewBuilder
+    private var previewsCover: some View {
+        if let set = vm.previewSet {
+            NavigationStack {
+                GalleryPreviewsView(
+                    gid: gallery.gid,
+                    token: gallery.token,
+                    totalPages: vm.previewPages,
+                    galleryPages: vm.detail?.info.pages ?? gallery.pages,
+                    initialPreviewSet: set
+                )
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("关闭") { showAllPreviews = false }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var commentsCover: some View {
+        NavigationStack {
+            GalleryCommentsView(
+                gid: gallery.gid,
+                token: gallery.token,
+                apiUid: vm.detail?.apiUid ?? -1,
+                apiKey: vm.detail?.apiKey ?? "",
+                initialComments: vm.comments,
+                hasMore: vm.hasMoreComments
+            )
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { showAllComments = false }
+                }
+            }
+        }
     }
 
     // MARK: - Error
