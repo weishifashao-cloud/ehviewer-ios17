@@ -1479,7 +1479,22 @@ class GalleryListViewModel {
             guard !isApplyingFilters else { return }
             isApplyingFilters = true
             defer { isApplyingFilters = false }
-            let hidden = GalleryFilterEngine.shared.apply(to: &galleries)
+
+            // ★ 不要对 self.galleries 取 inout。
+            //
+            //   didSet 正在观察这个属性，再把它的存储地址交给 apply(to:) 属于
+            //  「观察者内改写被观察者自身」。首屏加载走整体赋值（set 访问器），
+            //   触底分页走 append（modify 访问器），两者进入存储的路径不同：
+            //   后者在 modify 访问尚未结束时又会嵌套一次写访问，属于 Swift
+            //   独占性访问（exclusivity）的灰色地带，表现为「首屏正常、滑到底崩」。
+            //
+            //   改为先拷副本、过滤完再整体赋回：语义完全等价，
+            //   但不再有对同一存储的嵌套写访问。
+            var filtered = galleries
+            let hidden = GalleryFilterEngine.shared.apply(to: &filtered)
+            if hidden > 0 {
+                galleries = filtered   // 这次写入会被上面的 isApplyingFilters 挡住，不会递归
+            }
             filteredOutCount = hidden
         }
     }
@@ -1886,28 +1901,58 @@ class GalleryListViewModel {
         }
     }
 
+    /// 把新一页合并进列表：全量去重（已有 + 页内），返回真正新增的条数。
+    ///
+    /// 两个分页入口（href 翻页与 page=N 兜底）都必须走这里。
+    /// 直接 `append(contentsOf:)` 会让 `ForEach(id: \.gid)` 拿到重复 ID——
+    /// 翻页时若服务端有新画廊插入，同一本会同时排在两页的边界上。
+    @discardableResult
+    private func mergeUnique(_ incoming: [GalleryInfo]) -> Int {
+        var seen = Set(galleries.map(\.gid))
+        var unique: [GalleryInfo] = []
+        unique.reserveCapacity(incoming.count)
+        for g in incoming where seen.insert(g.gid).inserted {
+            unique.append(g)
+        }
+        if !unique.isEmpty {
+            galleries.append(contentsOf: unique)
+        }
+        return unique.count
+    }
+
     func loadMore(mode: GalleryListView.ListMode) async {
         guard !isLoading, hasMore else { return }
 
         // ★ 始终优先使用 nextHref 翻页
         // ptt 和 searchnav 模式都会提供完整 href (包含 next=TIMESTAMP 等跳页上下文)
         // 这确保日期跳转后能按日期顺序加载，不会因丢失上下文而循环
-        if let nextHref = nextHref {
+        if let href = nextHref {
             isLoading = true
+            LogManager.shared.info(
+                "loadMore start page=\(currentPage) total=\(galleries.count)", category: "GalleryList")
             do {
-                let result = try await EhAPI.shared.getGalleryList(url: nextHref)
+                let result = try await EhAPI.shared.getGalleryList(url: href)
 
-                // ★ 去重保护: 如果新加载的画廊全部已在列表中，说明分页回绕了
-                let existingGids = Set(self.galleries.map { $0.gid })
-                let newGalleries = result.galleries.filter { !existingGids.contains($0.gid) }
-                if result.galleries.count > 0 && newGalleries.isEmpty {
-                    // 全重复 → 到达尽头，停止加载
+                // ★ 全量去重。原来的写法只跟「已有列表」比对，漏了两种会让列表
+                //   出现重复 gid 的情况，而 ForEach(id: \.gid) 一旦拿到重复 ID，
+                //   SwiftUI 的行为是未定义的（List + swipeActions 下直接崩）：
+                //     1) 同一页内部重复：翻页过程中有新画廊插入时，E-Hentai 会把
+                //        同一本同时排在第 N 页末尾和第 N+1 页开头；
+                //     2) 空页：旧判定要求 raw > 0 才算「到底」，count() == 0 时
+                //        直接漏网，hasMore 保持 true → 触底哨兵反复触发，
+                //        形成无限翻页（持续网络请求 + 列表反复重算）。
+                let added = mergeUnique(result.galleries)
+
+                if added == 0 {
+                    // 空页与全重复都视为到达尽头
                     self.hasMore = false
+                    self.nextHref = nil
                     self.isLoading = false
+                    LogManager.shared.info(
+                        "loadMore end raw=\(result.galleries.count) total=\(self.galleries.count)",
+                        category: "GalleryList")
                     return
                 }
-
-                self.galleries.append(contentsOf: newGalleries)
                 self.prevHref = result.prevHref
                 self.nextHref = result.nextHref
                 self.totalPages = result.pages
@@ -2310,7 +2355,8 @@ class GalleryListViewModel {
                 self.galleries = result.galleries
                 recordFavoriteSyncIfNeeded(mode: mode)
             } else {
-                self.galleries.append(contentsOf: result.galleries)
+                // 与 href 翻页走同一条去重逻辑，避免页边界出现重复 gid
+                mergeUnique(result.galleries)
             }
             self.prevHref = result.prevHref
             self.nextHref = result.nextHref
