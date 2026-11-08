@@ -110,18 +110,29 @@ struct EhSearchBar: View {
             }
 
             if showsCancelButton && isFocused {
-                Button("取消") {
+                Button {
                     isFocused = false
                     text = ""
+                } label: {
+                    Text("取消")
+                        .font(EhFont.body)
+                        .foregroundStyle(EhColor.accent)
+                        // ★ 命中框做在 label 上，而不是 Button 外层。
+                        //
+                        //   .buttonStyle(.plain) 下 Button 用 **label 的形状** 做命中测试，
+                        //   在 Button 外面加 .frame/.contentShape 只改变布局占位，
+                        //   可点区域仍然是那两个字（约 34×20）——小屏上照样点不中。
+                        //   这里直接给 label 一个 44×44 的框并声明为矩形命中区。
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .font(EhFont.body)
-                .foregroundStyle(EhColor.accent)
                 .buttonStyle(.plain)
-                // 「取消」原本只有文字本身那么大（约 30×20），小屏上很难点中。
-                // 撑到 44×44 并把整个方形声明为命中区，视觉位置不变。
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                // ★ 不要用 .move(edge: .trailing)。
+                //
+                //   按钮是随聚焦状态插入的，父级 HStack 上有 0.2s 的隐式动画：
+                //   从右侧滑入的这 200ms 里，手指按的是它的"终点"位置，而控件还在半路上，
+                //   判定就是没点中。淡入原地出现，位置从一开始就是最终位置。
+                .transition(.opacity)
             }
         }
         .padding(.horizontal, EhSpacing.page)
