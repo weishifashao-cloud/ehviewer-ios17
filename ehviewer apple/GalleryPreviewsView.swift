@@ -109,7 +109,15 @@ struct GalleryPreviewsView: View {
         }
         .onAppear {
             HangProbe.shared.pushContext("全部预览")
-            if vm.allPreviews.isEmpty {
+            guard vm.allPreviews.isEmpty else { return }
+            // 先让转场跑起来，再把网格铺出来。
+            //
+            // 原来是在 onAppear 里同步建出整页格子。这一屏首帧就要实例化
+            // 二十来个 PreviewItem + 各自起一个雪碧图请求，这些工作会和
+            // push 转场的布局提交挤在同一帧里 —— 转场推不完、界面停在半路，
+            // 而且整屏不再响应触摸。推迟 80ms 不改变观感，但把两件事错开了。
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
                 vm.initialize(initialPreviewSet: initialPreviewSet)
             }
         }

@@ -21,6 +21,9 @@ struct GalleryCommentsView: View {
     
     @State private var vm = GalleryCommentsViewModel()
     @State private var composing: CommentComposeTarget?
+    /// 首屏数据是否已经灌进 VM。放一个显式标记而不是用 comments.isEmpty 判断，
+    /// 因为「零条评论 + hasMore」是合法状态，靠 isEmpty 会把 hasMore 丢掉。
+    @State private var seeded = false
 
     /// 未登录时不显示发表入口 —— 点了也只会拿到服务端的拒绝
     private var canComment: Bool { AppSettings.shared.isLogin }
@@ -78,8 +81,14 @@ struct GalleryCommentsView: View {
         #endif
         .onAppear {
             HangProbe.shared.pushContext("评论列表")
-            probe("评论·首次装载") {
-                vm.setInitialComments(initialComments, hasMore: hasMore)
+            guard !seeded else { return }
+            seeded = true
+            // 同预览页：把「建列表」从转场那一帧里挪出去，先让 push 推完。
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                probe("评论·首次装载") {
+                    vm.setInitialComments(initialComments, hasMore: hasMore)
+                }
             }
         }
         .onDisappear { HangProbe.shared.popContext("评论列表") }
