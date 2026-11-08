@@ -109,8 +109,9 @@ struct GalleryPreviewsView: View {
         }
         .onAppear {
             HangProbe.shared.pushContext("全部预览")
-            guard vm.allPreviews.isEmpty else { return }
-            vm.initialize(initialPreviewSet: initialPreviewSet)
+            if vm.allPreviews.isEmpty {
+                vm.initialize(initialPreviewSet: initialPreviewSet)
+            }
         }
         .onDisappear { HangProbe.shared.popContext("全部预览") }
         .overlay {

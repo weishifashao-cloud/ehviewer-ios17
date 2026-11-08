@@ -42,7 +42,6 @@ struct GalleryDetailView: View {
     @State private var showAllTags = false
     @State private var showRatingSheet = false
     @State private var showAllPreviews = false
-    @State private var showAllComments = false
     @State private var showFavoritePicker = false
     @State private var showArchive = false
     /// 归档与种子合并后的资源入口 sheet
@@ -716,13 +715,18 @@ struct GalleryDetailView: View {
                 Spacer()
                 // 查看全部预览按钮
                 if vm.previewPages > 1 {
-                    Button {
-                        showAllPreviews = true
+                    NavigationLink {
+                        GalleryPreviewsView(
+                            gid: gallery.gid,
+                            token: gallery.token,
+                            totalPages: vm.previewPages,
+                            galleryPages: vm.detail?.info.pages ?? gallery.pages,
+                            initialPreviewSet: previewSet
+                        )
                     } label: {
                         Text("查看全部 (\(vm.detail?.info.pages ?? gallery.pages)张)")
                             .font(.subheadline)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -788,8 +792,14 @@ struct GalleryDetailView: View {
 
             // ★ 底部额外的「查看全部」按钮 — 方便用户滚动到底部后直接点击
             if vm.previewPages > 1 {
-                Button {
-                    showAllPreviews = true
+                NavigationLink {
+                    GalleryPreviewsView(
+                        gid: gallery.gid,
+                        token: gallery.token,
+                        totalPages: vm.previewPages,
+                        galleryPages: vm.detail?.info.pages ?? gallery.pages,
+                        initialPreviewSet: previewSet
+                    )
                 } label: {
                     Text("查看全部预览 (\(vm.detail?.info.pages ?? gallery.pages)张)")
                         .font(.subheadline)
@@ -798,28 +808,10 @@ struct GalleryDetailView: View {
                         .background(Color(.tertiarySystemFill))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .buttonStyle(.plain)
                 .padding(.horizontal)
             }
         }
         .padding(.bottom, 12)
-        // 用「本页的开关 + navigationDestination」而不是 NavigationLink：
-        //
-        //   NavigationLink(destination:) 在跳转过程中一旦所在视图被重新求值
-        //   （详情页的 body 里有下载轮询、收藏状态、下载进度等会写 @Observable
-        //   的地方），这次导航就可能被丢掉，界面停在「推了一半」的状态，
-        //   而且整屏不再响应触摸 —— 正是用户描述的「没能完全跳转、画面不可操控」。
-        //   开关 + navigationDestination 把目的地声明挂在稳定的父节点上，
-        //   与行的重新求值解耦。
-        .navigationDestination(isPresented: $showAllPreviews) {
-            GalleryPreviewsView(
-                gid: gallery.gid,
-                token: gallery.token,
-                totalPages: vm.previewPages,
-                galleryPages: vm.detail?.info.pages ?? gallery.pages,
-                initialPreviewSet: previewSet
-            )
-        }
     }
 
     // MARK: - Comments (对齐 Android: 默认显示前2条评论，每条最多5行)
@@ -837,13 +829,19 @@ struct GalleryDetailView: View {
                 Spacer()
                 // 超过2条时显示"更多评论"
                 if hasMore {
-                    Button {
-                        showAllComments = true
+                    NavigationLink {
+                        GalleryCommentsView(
+                            gid: gallery.gid,
+                            token: gallery.token,
+                            apiUid: vm.detail?.apiUid ?? -1,
+                            apiKey: vm.detail?.apiKey ?? "",
+                            initialComments: vm.comments,
+                            hasMore: vm.hasMoreComments
+                        )
                     } label: {
                         Text("更多评论")
                             .font(.subheadline)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -882,17 +880,6 @@ struct GalleryDetailView: View {
             }
         }
         .padding(.bottom, 16)
-        // 同 previewSection：目的地挂在稳定的父节点上，不由会反复求值的行来持有
-        .navigationDestination(isPresented: $showAllComments) {
-            GalleryCommentsView(
-                gid: gallery.gid,
-                token: gallery.token,
-                apiUid: vm.detail?.apiUid ?? -1,
-                apiKey: vm.detail?.apiKey ?? "",
-                initialComments: vm.comments,
-                hasMore: vm.hasMoreComments
-            )
-        }
     }
 
     // MARK: - Error
