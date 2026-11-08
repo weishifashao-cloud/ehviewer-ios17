@@ -406,6 +406,8 @@ struct ImageReaderView: View {
         timeTimer?.invalidate()
         autoPageTask?.cancel()
         pageChangeTask?.cancel()
+        // 退出阅读器就停掉常驻预取，否则关掉之后它还会继续往下下几页
+        vm.stopPrefetch()
         saveReadingProgress()
     }
 

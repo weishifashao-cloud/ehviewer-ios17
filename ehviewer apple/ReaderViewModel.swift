@@ -677,11 +677,7 @@ class ReaderViewModel {
         await loadPage(currentPage)
         await downloadImageData(currentPage)
 
-        preloadTask?.cancel()
-        preloadTask = Task { [weak self] in
-            guard let self else { return }
-            await self.preload(around: self.currentPage)
-        }
+        startPrefetchLoop()
     }
 
     func onPageChange(_ page: Int) async {
@@ -706,12 +702,45 @@ class ReaderViewModel {
         // 释放远处页面
         evictDistantPages(from: page)
 
-        // 预加载不阻塞翻页: 原先 await preload 会把整个 TaskGroup 等完
-        // (默认 5 页 = 6 次网络往返)，翻页手势要等它结束才算完成，大画廊尤其明显。
-        // 改为后台推进，并在下次翻页时取消上一次未完成的预加载。
-        preloadTask?.cancel()
+        // 预加载不阻塞翻页；而且**不再取消上一轮**。
+        //
+        // 以前这里每次翻页都 preloadTask?.cancel() 再起一轮，后果是：
+        //   · 新一轮要等上面几行 await 完才开始（当前页没缓存时正好最慢）；
+        //   · 被取消的那一轮里，还没发出的第二批（page+3、page+4）永远补不上。
+        // 合起来就是「连着看三张，到第四张又得从零下」。
+        //
+        // 现在只保证常驻循环活着，它每一轮自己读 currentPage 切目标，
+        // 已经在飞的下载继续跑完，不白费流量。
+        startPrefetchLoop()
+    }
+
+    // MARK: - 常驻预取
+
+    /// 启动预取循环（幂等）。整个阅读会话只跑一个，翻页不会重启它。
+    func startPrefetchLoop() {
+        guard preloadTask == nil else { return }
         preloadTask = Task { [weak self] in
-            await self?.preload(around: page)
+            await self?.runPrefetchLoop()
+        }
+    }
+
+    /// 停止预取（退出阅读器时调用）
+    func stopPrefetch() {
+        preloadTask?.cancel()
+        preloadTask = nil
+        lastPreloadAnchor = nil
+    }
+
+    /// 一轮一轮地补后面的页，直到都就绪为止。
+    ///
+    /// 用 while + sleep 而不是「一次性排完目标队列」：翻页、跳页、改阅读方向
+    /// 都会改变目标，每一轮重新读 currentPage 就自动跟上了，不需要谁去取消它。
+    private func runPrefetchLoop() async {
+        while !Task.isCancelled {
+            await preload(around: currentPage)
+            // 一轮跑完歇一下再看。150ms 足够快跟上翻页，
+            // 又不会在「后面都就绪」时把主线程刷爆。
+            try? await Task.sleep(for: .milliseconds(150))
         }
     }
 
@@ -1276,6 +1305,9 @@ class ReaderViewModel {
         let batchSize = 3
         for chunk in stride(from: 0, to: candidates.count, by: batchSize) {
             if Task.isCancelled { return }
+            // 目标页变了就别再发下一批（已经发出去的那批会自己跑完，不浪费），
+            // 让外层常驻循环立刻用新的 currentPage 重新排队。
+            if currentPage != page { return }
             let batch = candidates[chunk..<min(chunk + batchSize, candidates.count)]
             await withTaskGroup(of: Void.self) { group in
                 for p in batch {
