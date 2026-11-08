@@ -34,6 +34,12 @@ struct EhViewerApp: App {
         // 只要它们跑在恢复之前，看到的就是「未登录」。
         // 放在 App.init 的最前面，才能保证所有这些读取都在它之后。
         EhCookieManager.shared.ensureCredentialsRestored()
+
+        // 主线程卡顿探针：系统给的卡死日志（bug_type 509）在这台设备上没有
+        // shared cache，46 层栈一层都符号化不出来，只能看到「卡在系统框架里」。
+        // 探针在进程内自己记录「卡住时正在哪一屏、哪个区段」，写进可导出的日志。
+        HangProbe.shared.start()
+
         // 配置全局 URLCache (对标 Android Conaco 320MB 磁盘缓存)
         // AsyncImage 和所有使用 URLSession.shared 的代码都会受益
         URLCache.shared = URLCache(

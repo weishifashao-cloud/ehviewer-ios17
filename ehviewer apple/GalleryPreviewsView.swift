@@ -108,10 +108,12 @@ struct GalleryPreviewsView: View {
             Button("取消", role: .cancel) {}
         }
         .onAppear {
+            HangProbe.shared.pushContext("全部预览")
             if vm.allPreviews.isEmpty {
                 vm.initialize(initialPreviewSet: initialPreviewSet)
             }
         }
+        .onDisappear { HangProbe.shared.popContext("全部预览") }
         .overlay {
             if vm.isInitialLoading {
                 ProgressView("加载中...")
@@ -299,6 +301,12 @@ class GalleryPreviewsViewModel {
     }
 
     private func appendPreviews(from previewSet: PreviewSet) {
+        // 每次翻页都会 append + 全量 sort。页数多时这里是纯 CPU 的同步开销，
+        // 包一层埋点，超过 350ms 会写进导出日志。
+        probe("预览·合并第\(allPreviews.count / 20 + 1)页") { _appendPreviews(from: previewSet) }
+    }
+
+    private func _appendPreviews(from previewSet: PreviewSet) {
         switch previewSet {
         case .large(let items):
             let newItems = items.map { preview in

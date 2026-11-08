@@ -174,6 +174,8 @@ struct ImageReaderView: View {
         .task {
             await initializeReader()
         }
+        .onAppear { HangProbe.shared.pushContext("阅读器") }
+        .onDisappear { HangProbe.shared.popContext("阅读器") }
         .sheet(isPresented: $showSettings) {
             ReaderSettingsSheet(
                 readingDirection: $readingDirection,

@@ -1516,7 +1516,11 @@ class GalleryListViewModel {
             guard !isApplyingFilters else { return }
             isApplyingFilters = true
             defer { isApplyingFilters = false }
-            let hidden = GalleryFilterEngine.shared.apply(to: &galleries)
+            // 过滤器在每次列表变化时同步跑一遍，标签库大时是笔可观的 CPU 开销，
+            // 超过 350ms 会写进导出日志。
+            let hidden = probe("列表·应用过滤器") {
+                GalleryFilterEngine.shared.apply(to: &galleries)
+            }
             filteredOutCount = hidden
         }
     }

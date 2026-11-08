@@ -69,8 +69,10 @@ struct GalleryCommentsView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .onAppear {
+            HangProbe.shared.pushContext("评论列表")
             vm.setInitialComments(initialComments, hasMore: hasMore)
         }
+        .onDisappear { HangProbe.shared.popContext("评论列表") }
         .toolbar {
             if canComment {
                 ToolbarItem(placement: .primaryAction) {

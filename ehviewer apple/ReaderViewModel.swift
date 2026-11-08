@@ -394,9 +394,32 @@ class ReaderViewModel {
         return compositeImages(left: left, right: right)
     }
 
+    /// 上一次的合成结果。
+    ///
+    /// `spreadImage` 是在 ViewBuilder 里被**直接调用**的（见 ImageReaderView.spreadPageView），
+    /// 也就是说 SwiftUI 每重算一次那一页的 body —— 缩放状态变化、浮层显隐、翻页、
+    /// 甚至父视图刷新 —— 都会重新走一遍合成。而合成一次是全分辨率的
+    /// UIGraphicsImageRenderer 绘制：两张 1600×2400 的图合起来十几 MB 位图，
+    /// 在 SE2 这种机型上是几百毫秒的同步开销。重复几次就足以把主线程压到
+    /// 看门狗超时（5s 直接杀进程）。这里按「两张图的实例」缓存，
+    /// 图片重新下载后是新实例，键自然失效。
+    @ObservationIgnored private var lastCompositeKey: String?
+    @ObservationIgnored private var lastCompositeImage: PlatformImage?
+
     /// 双页合成: 将两张图片水平拼合
     /// 安全限制: 合成结果不超过 maxDecodePixelSize，防止双大图合成导致 OOM
     private func compositeImages(left: PlatformImage, right: PlatformImage) -> PlatformImage {
+        let key = "\(ObjectIdentifier(left).hashValue)|\(ObjectIdentifier(right).hashValue)"
+        if key == lastCompositeKey, let cached = lastCompositeImage {
+            return cached
+        }
+        let result = probe("阅读器·双页合成") { renderComposite(left: left, right: right) }
+        lastCompositeKey = key
+        lastCompositeImage = result
+        return result
+    }
+
+    private func renderComposite(left: PlatformImage, right: PlatformImage) -> PlatformImage {
         var maxH = max(left.size.height, right.size.height)
         var totalW = left.size.width + right.size.width
 
