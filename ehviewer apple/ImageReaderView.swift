@@ -1357,24 +1357,35 @@ struct ImageReaderView: View {
         // 两枚玻璃胶囊而非一条通栏工具栏：阅读器的主体是图，
         // 通栏会在图上压出一条硬边，胶囊只占它需要的宽度。
         HStack(spacing: 10) {
-            HStack(spacing: 6) {
-                Button(action: { dismiss() }) {
+            // ★ 整枚胶囊就是返回键：视觉边界 = 可点边界。
+            //
+            //   此前 Button 只包住那个约 9×18 的箭头图标，胶囊的其余部分
+            //   （标题文字、14pt 左右内边距）看着属于按钮、实际点不动。
+            //   阅读器里手指落点本来就随意，按在标题上一片死寂，会被当成「按钮失灵」。
+            //   现在把箭头与标题一起放进 Button，并用 Capsule 形状把整枚胶囊
+            //   声明为命中区——圆角外的区域仍然不响应，和视觉严格一致。
+            Button(action: { dismiss() }) {
+                HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(EhReaderChrome.label)
-                }
 
-                if let title = readerTitle {
-                    Text(title)
-                        .font(EhFont.caption)
-                        .foregroundStyle(EhReaderChrome.label)
-                        .lineLimit(1)
-                        .frame(maxWidth: 150, alignment: .leading)
+                    if let title = readerTitle {
+                        Text(title)
+                            .font(EhFont.caption)
+                            .foregroundStyle(EhReaderChrome.label)
+                            .lineLimit(1)
+                            .frame(maxWidth: 150, alignment: .leading)
+                    }
                 }
+                .padding(.horizontal, 14)
+                .frame(height: 38)
+                .contentShape(Capsule())
+                .ehReaderGlass(cornerRadius: 19)
             }
-            .padding(.horizontal, 14)
-            .frame(height: 38)
-            .ehReaderGlass(cornerRadius: 19)
+            .buttonStyle(.plain)
+            .accessibilityLabel("返回")
+            .accessibilityAddTraits(.isButton)
 
             Spacer(minLength: 8)
 
