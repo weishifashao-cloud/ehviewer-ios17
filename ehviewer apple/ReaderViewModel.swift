@@ -1162,7 +1162,15 @@ class ReaderViewModel {
         #else
         let memoryGB = Double(ProcessInfo.processInfo.physicalMemory) / (1024 * 1024 * 1024)
         if UIDevice.current.userInterfaceIdiom == .pad { return memoryGB >= 8 ? 10 : 7 }
-        return memoryGB >= 6 ? 6 : 4
+        // iPhone：原来 3GB 机器只给 4，而设置里的默认值是 5 ——
+        // 用户在设置里把它调大也会被压回 4，等于那个开关在 SE 这类机型上是失效的。
+        // 现在按内存分档，让默认值能真正生效：
+        //   3GB(SE2/13 mini) → 5，4GB(14/15) → 6，6GB 及以上 → 8
+        // 单页解码后约 15MB（1600×2400×4B），每档只多一两页，配合已有的
+        // NSCache 成本上限（3GB 机器 80MB / 16 张）不会顶到 jetsam。
+        if memoryGB >= 6 { return 8 }
+        if memoryGB >= 4 { return 6 }
+        return 5
         #endif
     }
 
@@ -1278,8 +1286,12 @@ class ReaderViewModel {
         guard !candidates.isEmpty else { return }
 
         // 分批而不是一次性全丢进 TaskGroup:
-        // 全量并发时第 6 页可能比第 1 页先回来，用户等的恰恰是第 1 页
-        let batchSize = 3
+        // 全量并发时第 6 页可能比第 1 页先回来，用户等的恰恰是第 1 页。
+        //
+        // 批大小从 3 提到 6：URLSession 那边 httpMaximumConnectionsPerHost 本来就是 6，
+        // 原来只用 3 条，另外 3 条一直空着。提到 6 之后，默认预加载窗口（5 页）
+        // 从「3+2 两轮」压成一轮并发，翻页等的是最慢那一张，而不是两轮之和。
+        let batchSize = 6
         for chunk in stride(from: 0, to: candidates.count, by: batchSize) {
             if Task.isCancelled { return }
             let batch = candidates[chunk..<min(chunk + batchSize, candidates.count)]
