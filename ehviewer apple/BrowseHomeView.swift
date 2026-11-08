@@ -56,6 +56,12 @@ struct BrowseHomeView: View {
     @State private var toplistPeriod = 15
     /// 搜索页的查询。由 GalleryListView 提交上来，数据源随之切到 .search。
     @State private var searchQuery = ""
+    /// 高级搜索条件由本容器持有，而不是放进了下面的 GalleryListView。
+    ///
+    /// 下面那行 `.id(...)` 会在切页 / 提交搜索时把 GalleryListView 整个重建；
+    /// 条件若存在它内部（@State），重建即丢——用户选好的筛选连同缓存键一起回退，
+    /// 表现就是「高级搜索不生效」。提到这一层，重建多少次都还在。
+    @State private var advancedSearch = AdvancedSearchState()
 
     init(initial: BrowseSource = .home) {
         _source = State(initialValue: initial)
@@ -72,7 +78,8 @@ struct BrowseHomeView: View {
                 // 提交搜索就切到搜索页。空查询表示清空，退回首页。
                 searchQuery = query
                 source = query.isEmpty ? .home : .search
-            }
+            },
+            advancedSearch: advancedSearch
         )
         // 数据源、时间范围或查询变了就重建：每个源有各自的分页游标与筛选条件，
         // 复用同一个 ViewModel 会把上一个源的游标带到下一个源。

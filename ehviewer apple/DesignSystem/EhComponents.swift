@@ -194,7 +194,10 @@ struct EhTopTabs<T: Hashable>: View {
             .frame(maxHeight: .infinity)
             .padding(.horizontal, EhSpacing.page)
         }
-        .frame(height: 36)
+        // 36 → 44：HIG 的最小点按目标是 44×44，整条只有 36 高时，
+        // 手指落在文字上下边缘就会被判成没点中——小屏上尤其明显。
+        // 文字本身不放大，多出来的高度全部变成可点区域。
+        .frame(height: 44)
     }
 }
 

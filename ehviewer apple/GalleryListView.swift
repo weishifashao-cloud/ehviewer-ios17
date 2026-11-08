@@ -41,7 +41,15 @@ struct GalleryListView: View {
     @State private var showQuickSearch = false
     @State private var showAdvancedSearch = false
     @State private var showTagSelector = false
-    @State private var advancedSearch = AdvancedSearchState()
+    /// 外部注入的高级搜索状态（由浏览容器持有）。
+    ///
+    /// 浏览容器在切页 / 提交搜索时用 `.id()` 重建本视图，`@State` 会被重置成默认值。
+    /// 而用户刚在高级搜索面板里选好的条件必须活过这次重建——否则新 ViewModel 拿到
+    /// 的 currentAdvanceSearch 是 -1，既发不出带筛选的请求，还会因为
+    /// filterSignature 变成默认值而命中「未过滤」的旧缓存，表现为「高级搜索不生效」。
+    private var externalAdvancedSearch: AdvancedSearchState? = nil
+    @State private var ownAdvancedSearch = AdvancedSearchState()
+    private var advancedSearch: AdvancedSearchState { externalAdvancedSearch ?? ownAdvancedSearch }
     @State private var selectedQuickSearch: QuickSearchRecord?
     @State private var selectedGallery: GalleryInfo?
     /// 搜索框聚焦态。用 @State 而非 @FocusState：焦点实际由
@@ -116,12 +124,14 @@ struct GalleryListView: View {
 
     /// 浏览容器的根列表 — 在搜索栏下方带出顶部切页条
     init(mode: ListMode, browseSource: Binding<BrowseSource>, toplistPeriod: Binding<Int>? = nil,
-         onSearchSubmit: ((String) -> Void)? = nil) {
+         onSearchSubmit: ((String) -> Void)? = nil,
+         advancedSearch: AdvancedSearchState? = nil) {
         self.toplistPeriod = toplistPeriod
         self.onSearchSubmit = onSearchSubmit
         self.mode = mode
         self.externalSelection = nil
         self.browseSource = browseSource
+        self.externalAdvancedSearch = advancedSearch
     }
 
     /// 作为导航目标推入时使用，不创建自己的 NavigationStack/SplitView
@@ -243,6 +253,11 @@ struct GalleryListView: View {
             if case .search(let keyword) = mode, searchTokens.isEmpty, !keyword.isEmpty {
                 syncField(from: keyword)
             }
+
+            // ★ 先把高级搜索条件灌进 ViewModel，再加载。
+            //   顺序不能反：cacheKey 里含 filterSignature，晚一步就会用 -1 去查缓存，
+            //   命中未过滤的旧结果，用户看到的就是「高级搜索没生效」。
+            viewModel.syncAdvancedSettings(advancedSearch)
 
             // 安全兜底: 确保数据加载在任何分支下都能触发
             if viewModel.galleries.isEmpty && !viewModel.isLoading {
@@ -951,8 +966,17 @@ struct GalleryListView: View {
 
         let query = searchTokens.joined(separator: " ")
         if let onSearchSubmit {
-            // 交给浏览容器切到搜索页；这一份列表随之被重建
-            onSearchSubmit(query)
+            // 浏览容器只在「数据源 / 查询」变化时重建本视图（见 BrowseHomeView 的 .id）。
+            // 若查询没变、只是改了高级选项，容器不会重建，onSearchSubmit 也就什么都不做——
+            // 用户按了搜索却毫无反应。这种情况下直接就地重搜。
+            var currentQuery = ""
+            if case .search(let kw) = mode { currentQuery = kw }
+            if !query.isEmpty, query == currentQuery {
+                viewModel.performSearch(query: query, advanced: advancedSearch)
+            } else {
+                // 交给浏览容器切到搜索页；这一份列表随之被重建
+                onSearchSubmit(query)
+            }
         } else {
             viewModel.performSearch(query: query, advanced: advancedSearch)
         }
@@ -1290,7 +1314,8 @@ struct GalleryListView: View {
                 ),
                 primaryAction: advancedSearch.isEnabled
                     ? ("清除筛选条件", {
-                        advancedSearch = AdvancedSearchState()
+                        // 复用同一个对象（它可能是容器注入的），只把字段复位
+                        advancedSearch.reset()
                         viewModel.searchWithAdvanced(advancedSearch)
                     })
                     : nil

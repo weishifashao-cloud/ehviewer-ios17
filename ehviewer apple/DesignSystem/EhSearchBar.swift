@@ -116,6 +116,11 @@ struct EhSearchBar: View {
                 }
                 .font(EhFont.body)
                 .foregroundStyle(EhColor.accent)
+                .buttonStyle(.plain)
+                // 「取消」原本只有文字本身那么大（约 30×20），小屏上很难点中。
+                // 撑到 44×44 并把整个方形声明为命中区，视觉位置不变。
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
