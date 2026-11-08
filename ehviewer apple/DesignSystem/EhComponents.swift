@@ -155,49 +155,58 @@ struct EhTopTabs<T: Hashable>: View {
 
     @Namespace private var underline
 
+    /// 能放下就不套 ScrollView。
+    ///
+    /// 横向 ScrollView 自带平移识别器，它会和按钮的点按竞争：手指落下时有几像素
+    /// 位移，平移识别器就会接管，按钮判定为未点击——小屏上尤其明显。
+    /// iOS 17 支持的最窄机型是 375pt，5 个 44pt 标签 + 间距 + 边距共约 332pt，
+    /// 本来就放得下，不需要滚动。只有项数超过 5 时才回退到可滚动版本。
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 20) {
-                ForEach(items, id: \.value) { item in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.22)) { selection = item.value }
-                    } label: {
-                        VStack(spacing: 6) {
-                            Text(item.title)
-                                .font(.system(size: 15, weight: selection == item.value ? .semibold : .regular))
-                                .foregroundStyle(selection == item.value ? EhColor.label : EhColor.secondaryLabel)
-                                .lineLimit(1)
-
-                            Group {
-                                if selection == item.value {
-                                    Capsule()
-                                        .fill(EhColor.accentFill)
-                                        .matchedGeometryEffect(id: "underline", in: underline)
-                                } else {
-                                    Color.clear
-                                }
-                            }
-                            .frame(height: 2)
-                        }
-                        // ★ 纵向撑满整条 36pt，而不是只让文字本身可点。
-                        //
-                        //   原来是 VStack 的自然高度（约 26pt），外面那 5pt 上下
-                        //   属于「点了没反应」的死区。小屏（SE 这类 320/375 宽的
-                        //   机器）上手指落在文字边缘就会被判成没点中。
-                        //   只改纵向：横向仍按内容宽度排布，其他机型的视觉不变。
-                        .frame(maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .frame(maxHeight: .infinity)
-            .padding(.horizontal, EhSpacing.page)
+        if items.count <= 5 {
+            tabsRow.frame(height: 44)
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) { tabsRow }
+                .frame(height: 44)
         }
-        // 36 → 44：HIG 的最小点按目标是 44×44，整条只有 36 高时，
-        // 手指落在文字上下边缘就会被判成没点中——小屏上尤其明显。
-        // 文字本身不放大，多出来的高度全部变成可点区域。
-        .frame(height: 44)
+    }
+
+    private var tabsRow: some View {
+        HStack(spacing: 20) {
+            ForEach(items, id: \.value) { item in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.22)) { selection = item.value }
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(item.title)
+                            .font(.system(size: 15, weight: selection == item.value ? .semibold : .regular))
+                            .foregroundStyle(selection == item.value ? EhColor.label : EhColor.secondaryLabel)
+                            .lineLimit(1)
+
+                        Group {
+                            if selection == item.value {
+                                Capsule()
+                                    .fill(EhColor.accentFill)
+                                    .matchedGeometryEffect(id: "underline", in: underline)
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .frame(height: 2)
+                    }
+                    // 下划线跟文字同宽：先按内容定宽，再用外层 frame 把命中框补到 44。
+                    // 少了这一步，下划线会被 44pt 的框拉宽，视觉上就变了。
+                    .fixedSize(horizontal: true, vertical: false)
+                    // ★ 明确的 44×44，不能写 maxHeight: .infinity。
+                    //   ScrollView 给内容的高度提案是 nil，maxHeight: .infinity 在 nil
+                    //   提案下会退回内容理想高度（约 26pt）——所以「撑满整条」其实
+                    //   从没生效过，可点区域一直是 26pt，这就是反复点不准的原因。
+                    .frame(minWidth: 44, height: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, EhSpacing.page)
     }
 }
 
