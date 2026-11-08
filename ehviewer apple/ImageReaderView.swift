@@ -173,8 +173,6 @@ struct ImageReaderView: View {
         .onDisappear(perform: cleanupReader)
         .task {
             await initializeReader()
-            // Fix F2-2: 只有真正打开阅读器才记录历史 (从详情页 loadDetail 迁移到这里)
-            recordReadingHistory()
         }
         .sheet(isPresented: $showSettings) {
             ReaderSettingsSheet(
@@ -334,6 +332,13 @@ struct ImageReaderView: View {
     // MARK: - Setup
 
     private func setupReader() {
+        // ★ 历史记录必须在这里同步写，不能放在 .task 里。
+        //
+        //   `.task` 绑定视图生命周期，用户打开阅读器后立刻返回（或快速划一下又退出）时，
+        //   任务在 `await initializeReader()` 处就被取消，后面这行永远不执行——
+        //   表现就是「明明看过，历史里却没有」。onAppear 同步执行，不受取消影响。
+        recordReadingHistory()
+
         readingDirection = ReadingDirection(rawValue: AppSettings.shared.readingDirection) ?? .topToBottom
         scaleMode = ScaleMode(rawValue: AppSettings.shared.pageScaling) ?? .fit
         startPosition = StartPosition(rawValue: AppSettings.shared.startPosition) ?? .topRight

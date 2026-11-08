@@ -41,7 +41,10 @@ struct GalleryPreviewsView: View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: previewWidth, maximum: previewWidth + 20), spacing: 8)], spacing: 16) {
                 ForEach(vm.allPreviews, id: \.position) { preview in
-                    previewItem(preview: preview)
+                    // readUpTo 原本是 previewItem 内部的 computed property：
+                    // 每个格子每次重算都要读一次 UserDefaults 并做一次字符串插值。
+                    // 一屏几十格、滚动时反复求值，这是一笔纯浪费的开销。
+                    previewItem(preview: preview, readUpTo: readUpTo)
                 }
 
                 // 触底哨兵 —— 只有它出现时才拉下一页。
@@ -149,7 +152,7 @@ struct GalleryPreviewsView: View {
     }
 
     @ViewBuilder
-    private func previewItem(preview: PreviewItem) -> some View {
+    private func previewItem(preview: PreviewItem, readUpTo: Int) -> some View {
         Button {
             // 对齐 Android: 预览点击直接进入阅读器并定位页面
             readerTarget = ReaderTarget(page: preview.position)
@@ -223,7 +226,15 @@ struct PreviewItem: Identifiable {
 
 // MARK: - ViewModel
 
+/// ★ 必须 @MainActor。
+///
+/// 这个类是 @Observable，SwiftUI 在 body 里直接读它的 allPreviews / isLoadingMore。
+/// 而 loadNextPageIfNeeded 里有 `isLoading = true` 写在 MainActor.run **之外**，
+/// 也就是在非主线程改可观察状态 —— 与渲染线程上的读取竞争，
+/// 轻则「Publishing changes from within view updates」刷屏，重则布局系统卡住。
+/// 标成 @MainActor 后所有读写都在主线程，语义不变，竞争消失。
 @Observable
+@MainActor
 class GalleryPreviewsViewModel {
     var allPreviews: [PreviewItem] = []
     var isInitialLoading = false

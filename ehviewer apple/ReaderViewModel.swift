@@ -1221,7 +1221,13 @@ class ReaderViewModel {
 
         // 顺着阅读方向多铺，逆向只留少量回看余量
         let ahead = forward ? budget : max(1, budget / 3)
-        let behind = forward ? max(1, budget / 4) : budget
+        // ★ 回看余量至少 2 页。
+        //
+        //   preload 是分批跑的，每批之间会检查取消——翻页一快，onPageChange 就把
+        //   上一轮 preloadTask 取消掉，后面几批根本没发出去。如果这些页刚好被你
+        //   「跳过去」了，它们就永远停在 0%：既不在新的前向窗口里，回看余量又只有
+        //   1 页，谁也轮不到它。留 2 页，下一次翻页就能把这些空洞补回来。
+        let behind = forward ? max(2, budget / 3) : budget
 
         let lo = max(0, page - behind)
         let hi = min(totalPages - 1, page + ahead)

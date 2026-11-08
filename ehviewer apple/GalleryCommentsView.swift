@@ -99,6 +99,11 @@ struct GalleryCommentsView: View {
     
     // MARK: - 单条评论
     
+    /// 评论正文的纯文本（带缓存，见文件末尾的 CommentTextCache）
+    private static func plainCommentText(_ comment: GalleryComment) -> String {
+        CommentTextCache.plain(id: comment.id, html: comment.comment)
+    }
+
     private func commentRow(_ comment: GalleryComment) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // 头部：用户名、上传者徽标、时间、分数
@@ -133,7 +138,15 @@ struct GalleryCommentsView: View {
             }
 
             // 评论内容 (HTML 转纯文本，完整显示)
-            Text(comment.comment.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression))
+            //
+            // ★ 转换结果必须缓存。原来这行直接写在 body 里：
+            //     comment.comment.replacingOccurrences(of: "<[^>]+>", with: "",
+            //                                          options: .regularExpression)
+            //   `options: .regularExpression` 每次调用都会**重新编译一遍正则**
+            //   （NSRegularExpression 的构造成本在毫秒级），而 body 在滚动、
+            //   投票、选中态变化时都会重算——一屏十几条评论就是几十次编译，
+            //   主线程被压住，表现就是「看评论时卡死」。改成按 id + 原文缓存。
+            Text(Self.plainCommentText(comment))
                 .font(EhFont.body)
                 .foregroundStyle(EhColor.label)
             
@@ -327,5 +340,27 @@ class GalleryCommentsViewModel {
             initialComments: [],
             hasMore: true
         )
+    }
+}
+
+// MARK: - 评论正文缓存
+
+/// HTML → 纯文本的结果缓存。
+///
+/// `String.replacingOccurrences(options: .regularExpression)` 每次调用都会新建
+/// 一个 NSRegularExpression；评论列表在滚动 / 投票 / 选中态变化时都会重算 body，
+/// 没有缓存时等于把正则编译挂在渲染路径上。这里按「评论 id + 原文」缓存，
+/// 原文变了（编辑过）会自动失效，同一屏滚动多少来回都只编译一次。
+private enum CommentTextCache {
+    private static var store: [Int64: (source: String, plain: String)] = [:]
+
+    static func plain(id: Int64, html: String) -> String {
+        if let hit = store[id], hit.source == html { return hit.plain }
+        let plain = html
+            .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        store[id] = (html, plain)
+        return plain
     }
 }
