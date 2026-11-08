@@ -121,6 +121,51 @@ private class EdgeSwipeBackViewController: UIViewController {
 }
 #endif
 
+// MARK: - 2b. 自绘边缘滑动返回（iOS 17 安全版）
+
+extension View {
+    /// 自绘的边缘右滑返回。
+    ///
+    /// 为什么不复用上面的 `.enableEdgeSwipeBack()`：那套要替换系统
+    /// `interactivePopGestureRecognizer` 的 delegate，正是它在 iOS 17 上把
+    /// 「下一次 push 的转场」搞坏（详见上面的注释与 Apple 论坛链接）。
+    ///
+    /// 这里完全不碰系统手势识别器：
+    ///   · 只在屏幕最左侧 24pt 内起手的拖动才算数；
+    ///   · 必须是横向为主（|dx| > 1.5·|dy|）且拖够 60pt；
+    ///   · 满足条件就回调一次，由调用方执行 dismiss()。
+    ///
+    /// 用 simultaneousGesture 挂载，纵向滚动不受影响；也不额外铺一层可命中的
+    /// 视图，所以不会像全屏 overlay 那样把按钮点击吃掉。
+    func edgeSwipeBack(_ action: @escaping () -> Void) -> some View {
+        modifier(EdgeSwipeBackGestureModifier(action: action))
+    }
+}
+
+private struct EdgeSwipeBackGestureModifier: ViewModifier {
+    let action: () -> Void
+
+    /// 防止一次拖动触发多次 dismiss
+    @State private var armed = true
+
+    func body(content: Content) -> some View {
+        content
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 16, coordinateSpace: .global)
+                    .onEnded { value in
+                        guard armed else { return }
+                        guard value.startLocation.x <= 24 else { return }
+                        let dx = value.translation.width
+                        let dy = value.translation.height
+                        guard dx > 60, abs(dx) > abs(dy) * 1.5 else { return }
+                        armed = false
+                        action()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { armed = true }
+                    }
+            )
+    }
+}
+
 // MARK: - 3. View 扩展
 
 extension View {

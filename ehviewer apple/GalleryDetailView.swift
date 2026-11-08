@@ -124,8 +124,10 @@ struct GalleryDetailView: View {
         //   （进程已被看门狗杀掉，见两份 .ips 的 0x8badf00d）。
         //   参考 developer.apple.com/forums/thread/745986 与 thread/745040。
         //
-        //   代价：这一页不再支持边缘滑动返回，左上角的返回按钮照常可用。
-        //   要恢复的话请用「自绘边缘手势」，不要再碰系统的手势代理。
+        //   边缘滑动返回改由下面这行「自绘手势」提供：它不碰系统的
+        //   interactivePopGestureRecognizer，只在左边缘起手的横向拖动结束时
+        //   调一次 dismiss()，因此不会重演上面那个 iOS 17 转场卡死。
+        .edgeSwipeBack { dismiss() }
         #endif
         // 「查看全部预览 / 更多评论」改成**模态**呈现，不再走导航栈的 push。
         //
@@ -750,6 +752,9 @@ struct GalleryDetailView: View {
                     } label: {
                         Text("查看全部 (\(vm.detail?.info.pages ?? gallery.pages)张)")
                             .font(.subheadline)
+                            // 改回强调色：NavigationLink 时代这个 label 由系统按
+                            // tint 上色，换成 Button 后默认是主文字色，看着就不一样了
+                            .foregroundStyle(EhColor.accent)
                     }
                     .buttonStyle(.plain)
                 }
@@ -822,6 +827,7 @@ struct GalleryDetailView: View {
                 } label: {
                     Text("查看全部预览 (\(vm.detail?.info.pages ?? gallery.pages)张)")
                         .font(.subheadline)
+                        .foregroundStyle(EhColor.accent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(Color(.tertiarySystemFill))
@@ -854,6 +860,7 @@ struct GalleryDetailView: View {
                     } label: {
                         Text("更多评论")
                             .font(.subheadline)
+                            .foregroundStyle(EhColor.accent)
                     }
                     .buttonStyle(.plain)
                 }
