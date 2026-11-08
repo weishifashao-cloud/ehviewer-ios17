@@ -200,7 +200,7 @@ struct EhTopTabs<T: Hashable>: View {
                     //   ScrollView 给内容的高度提案是 nil，maxHeight: .infinity 在 nil
                     //   提案下会退回内容理想高度（约 26pt）——所以「撑满整条」其实
                     //   从没生效过，可点区域一直是 26pt，这就是反复点不准的原因。
-                    .frame(minWidth: 44, height: 44)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
