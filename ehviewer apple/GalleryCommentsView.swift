@@ -32,9 +32,17 @@ struct GalleryCommentsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                // 身份仍用下标，但只在「只在尾部追加」的前提下成立。
+                //
+                // 这里不能用评论 id 做身份：E-Hentai 的上传者说明 id 固定是 0，
+                // 同一个画廊里可能出现多条 id == 0 的评论，ForEach 拿到重复 id
+                // 是未定义行为。而下标之所以安全，是因为 VM 侧改成了增量合并
+                // （见 loadAllComments）—— 已有的行下标不变，只有尾部新增。
+                // 之前是整体替换数组，下标全变 → SwiftUI 认不出旧行 → 整段重建，
+                // 上千条评论时就是点进页面那几秒的主线程卡顿。
                 ForEach(Array(vm.comments.enumerated()), id: \.offset) { idx, comment in
                     commentRow(comment)
-                    
+
                     if idx < vm.comments.count - 1 {
                         Divider()
                             .padding(.leading)
@@ -70,7 +78,9 @@ struct GalleryCommentsView: View {
         #endif
         .onAppear {
             HangProbe.shared.pushContext("评论列表")
-            vm.setInitialComments(initialComments, hasMore: hasMore)
+            probe("评论·首次装载") {
+                vm.setInitialComments(initialComments, hasMore: hasMore)
+            }
         }
         .onDisappear { HangProbe.shared.popContext("评论列表") }
         .toolbar {
@@ -288,7 +298,22 @@ class GalleryCommentsViewModel {
             let result = try await EhAPI.shared.getAllComments(gid: gid, token: token)
             
             await MainActor.run {
-                self.comments = result.comments
+                // 增量合并，而不是整体替换。
+                //
+                // 整体替换会让 ForEach 里已有的每一行都换掉身份，视图全部重建；
+                // 热门画廊的评论动辄上千条，重建一次的代价就是几秒主线程。
+                // 这里保留已有顺序、按 id 去重追加新到的，行身份不变。
+                if self.comments.isEmpty {
+                    self.comments = result.comments
+                } else {
+                    var seen = Set(self.comments.map(\.id))
+                    var merged = self.comments
+                    merged.reserveCapacity(self.comments.count + result.comments.count)
+                    for c in result.comments where seen.insert(c.id).inserted {
+                        merged.append(c)
+                    }
+                    self.comments = merged
+                }
                 self.hasMore = result.hasMore
                 self.isLoading = false
             }
