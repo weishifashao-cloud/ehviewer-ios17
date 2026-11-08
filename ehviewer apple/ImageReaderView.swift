@@ -44,7 +44,17 @@ struct ImageReaderView: View {
     /// 单页分享/存储用的临时文件（对齐 Android page_menu_share / save_to）
     @State private var shareItem: ReaderShareItem?
     @State private var hasAppliedInitialPage = false
-    @State private var isZoomed = false
+    /// 每页独立的缩放状态。翻页互不干扰，翻回来时还在原处。
+    @State private var zoomStore = ReaderZoomStore()
+    /// 捏合手势的基准值（一次手势开始时当前页的 scale）
+    @State private var magnifyBase: CGFloat = 1
+    @State private var magnifyActive = false
+    /// 拖动手势的基准偏移
+    @State private var panBase: CGSize = .zero
+    @State private var panActive = false
+
+    /// 当前页是否处于放大状态 —— 只看当前页，避免「上一页放大了，这一页也翻不动」
+    private var isZoomed: Bool { zoomStore.isZoomed(vm.currentPage) }
     @State private var showTutorial = false
 
     // 跳页输入
@@ -648,6 +658,75 @@ struct ImageReaderView: View {
         }
     }
 
+    // MARK: - 缩放 / 平移手势（挂在 ScrollView 层）
+
+    /// 双指缩放。始终 simultaneousGesture，不阻塞翻页滚动。
+    private func readerMagnifyGesture(pageSize: CGSize) -> some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.005)
+            .onChanged { value in
+                let page = vm.currentPage
+                var s = zoomStore.state(for: page)
+                if !magnifyActive {
+                    // 一次捏合的起点：记下当前缩放，避免每次回调都叠乘
+                    magnifyBase = s.scale
+                    magnifyActive = true
+                }
+                s.scale = min(3, max(1, magnifyBase * value.magnification))
+                s.offset = zoomStore.clampOffset(s.offset, in: pageSize, scale: s.scale)
+                zoomStore.set(s, for: page)
+            }
+            .onEnded { _ in
+                magnifyActive = false
+                let page = vm.currentPage
+                let s = zoomStore.state(for: page)
+                if s.scale < 1.1 {
+                    // 缩回接近 1x 直接归位。否则会留下 1.02 这种
+                    // 「看着没放大、但翻页被禁掉」的僵尸状态。
+                    zoomStore.reset(page)
+                } else {
+                    zoomStore.set(s, for: page)
+                }
+            }
+    }
+
+    /// 放大后拖动查看局部。只在当前页已放大时接管，
+    /// 未放大时直接返回，翻页手势照常工作。
+    private func readerPanGesture(pageSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 6)
+            .onChanged { value in
+                let page = vm.currentPage
+                var s = zoomStore.state(for: page)
+                guard s.isZoomed else { return }
+                if !panActive {
+                    panBase = s.offset
+                    panActive = true
+                }
+                s.offset = zoomStore.clampOffset(
+                    CGSize(width: panBase.width + value.translation.width,
+                           height: panBase.height + value.translation.height),
+                    in: pageSize,
+                    scale: s.scale)
+                zoomStore.set(s, for: page)
+            }
+            .onEnded { _ in
+                panActive = false
+            }
+    }
+
+    /// 双击：1x ↔ 2x。状态按页存，双击哪一页就只影响那一页。
+    private func toggleZoom(page: Int) {
+        var s = zoomStore.state(for: page)
+        withAnimation(.spring(duration: 0.28)) {
+            if s.scale < 1.5 {
+                s.scale = 2
+                s.offset = .zero
+                zoomStore.set(s, for: page)
+            } else {
+                zoomStore.reset(page)
+            }
+        }
+    }
+
     // MARK: - Horizontal Page Reader (iOS)
     // Perf P0-1: 使用 ScrollView + LazyHStack + .scrollTargetBehavior(.paging) 替代 TabView
     // TabView(.page) 是非懒加载的 — 会一次性实例化所有子 View
@@ -702,8 +781,17 @@ struct ImageReaderView: View {
                 }
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $vm.lazyCurrentPage)
-                // 图片缩放时禁用翻页滚动，让 SwiftUIZoomableImage 的拖动手势控制平移
+                // 当前页放大时禁用翻页滚动，让缩放层的拖动手势接管平移
                 .scrollDisabled(isZoomed)
+                // 缩放 / 平移手势统一挂在滚动视图这一层，而不是每一页内部。
+                //
+                // 挂进页内的老做法有个致命问题：UIScrollView 的
+                // canCancelContentTouches 默认为 true —— 父级横向 ScrollView
+                // 一旦接收过拖拽（= 你翻过一页），落在子视图上的触摸会被取消，
+                // 页内的 MagnifyGesture 就再也收不到，于是「只有第一页能放大」。
+                // 挂在这里则始终有效，且对每一页一视同仁。
+                .simultaneousGesture(readerMagnifyGesture(pageSize: geometry.size))
+                .simultaneousGesture(readerPanGesture(pageSize: geometry.size))
                 #if os(iOS)
                 .environment(\.layoutDirection, readingDirection == .rightToLeft ? .rightToLeft : .leftToRight)
                 #endif
@@ -774,7 +862,11 @@ struct ImageReaderView: View {
                     handleTapZone(location: location, viewSize: viewSize)
                 },
                 onZoomChanged: { zoomed in
-                    isZoomed = zoomed
+                    // 双页模式按「主页码」记账，和 isZoomed 用 currentPage
+                    // 查表的口径保持一致。
+                    zoomStore.set(
+                        PageZoomState(scale: zoomed ? 2 : 1, offset: .zero),
+                        for: spread.primaryPage)
                 }
             )
         } else {
@@ -1099,15 +1191,16 @@ struct ImageReaderView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let cachedImage = vm.image(at: index) {
                 #if os(iOS)
-                SwiftUIZoomableImage(
+                ZoomablePageContent(
                     image: cachedImage,
-                    isFullPage: true,
+                    scale: zoomStore.state(for: index).scale,
+                    offset: zoomStore.state(for: index).offset,
                     containerSize: containerSize,
                     onSingleTap: { location, viewSize in
                         handleTapZone(location: location, viewSize: viewSize)
                     },
-                    onZoomChanged: { zoomed in
-                        isZoomed = zoomed
+                    onDoubleTap: {
+                        toggleZoom(page: index)
                     }
                 )
                 // 单页菜单（对齐 Android GalleryActivity.showPageDialog）。
@@ -1125,7 +1218,9 @@ struct ImageReaderView: View {
                         handleTapZone(location: location, viewSize: viewSize)
                     },
                     onZoomChanged: { zoomed in
-                        isZoomed = zoomed
+                        zoomStore.set(
+                            PageZoomState(scale: zoomed ? 2 : 1, offset: .zero),
+                            for: index)
                     }
                 )
                 #endif
@@ -1796,50 +1891,88 @@ private struct ViewSizePreferenceKey: PreferenceKey {
     }
 }
 
-/// 纯 SwiftUI 可缩放图片 — 不使用 UIScrollView，彻底避免与父 ScrollView 的手势冲突
+// MARK: - 阅读器缩放状态
+
+/// 单页的缩放与平移状态。
+struct PageZoomState: Equatable {
+    var scale: CGFloat = 1
+    var offset: CGSize = .zero
+    var isZoomed: Bool { scale > 1.01 }
+}
+
+/// 按页号存放缩放状态。
 ///
-/// 手势架构:
-/// 1. 单击/双击: 统一用 SpatialTapGesture(count:1) + 手动 300ms 延时检测
-///    解决 TapGesture(count:2) 与 SpatialTapGesture(count:1) 类型不匹配导致双击无法触发的问题
-/// 2. 双指缩放 (MagnifyGesture): 始终以 .simultaneousGesture 挂载，不阻塞父 ScrollView
-/// 3. 拖动平移 (DragGesture): 通过 overlay + allowsHitTesting(isZoomed) 控制
-///    - 1x 时 overlay 不接收触摸 → 父 ScrollView 自由滚动/翻页
-///    - >1x 时 overlay 拦截触摸 → 拖动平移图片，阻止父 ScrollView 滚动
-///    - overlay 上同时挂载 tap + pinch 手势，防止被 overlay 遮挡
+/// 改成这个结构之前，缩放状态是 `SwiftUIZoomableImage` 内部的 `@State`，
+/// 另有一个 `@State private var isZoomed` 挂在 `ImageReaderView` 上给
+/// `.scrollDisabled` 用。那套结构有两个硬伤，正好对上「只有第一张能放大」：
+///
+///   1. 手势挂在**滚动视图内部**的页视图上。UIScrollView 的
+///      `canCancelContentTouches` 默认为 true —— 父级横向 ScrollView 一旦接收过
+///      拖拽（也就是你翻过一页之后），落在子视图上的触摸会被取消，页内的
+///      MagnifyGesture 就再也收不到。第一页之所以能用，恰恰是因为翻页之前
+///      ScrollView 还没被拖过。
+///   2. `isZoomed` 是全局单值，任何一页放大都会把翻页整体禁掉，跨页互相污染。
+///
+/// 现在：状态按页号存（互不干扰、翻回来还在），手势统一提到 ScrollView 这一层
+/// —— 和垂直模式的点击手势是同一个做法（那套已经在真机上用了很久）。
+@Observable
+final class ReaderZoomStore {
+    private var states: [Int: PageZoomState] = [:]
+
+    func state(for page: Int) -> PageZoomState { states[page] ?? PageZoomState() }
+
+    func set(_ state: PageZoomState, for page: Int) {
+        // 回到 1x 且没有偏移就不必占位，避免字典无限增长
+        if !state.isZoomed && state.offset == .zero {
+            states.removeValue(forKey: page)
+        } else {
+            states[page] = state
+        }
+    }
+
+    func reset(_ page: Int) { states.removeValue(forKey: page) }
+
+    func resetAll() { states.removeAll() }
+
+    func isZoomed(_ page: Int) -> Bool { (states[page]?.scale ?? 1) > 1.01 }
+
+    /// 平移边界：不允许拖出「放大后多出来的可视区域」，否则会把图拖到屏幕外
+    func clampOffset(_ proposed: CGSize, in size: CGSize, scale: CGFloat) -> CGSize {
+        let maxX = max(0, size.width * (scale - 1) / 2)
+        let maxY = max(0, size.height * (scale - 1) / 2)
+        return CGSize(width: min(maxX, max(-maxX, proposed.width)),
+                      height: min(maxY, max(-maxY, proposed.height)))
+    }
+}
+
 #if os(iOS)
-private struct SwiftUIZoomableImage: View {
+/// 单页内容 — 只负责画图和识别点击；缩放与平移由外部 `ReaderZoomStore` 传入。
+///
+/// 页面自身不再持有任何缩放状态，也不挂捏合/拖动手势：
+/// 状态在外部按页号存，手势在滚动视图那一层统一处理。
+private struct ZoomablePageContent: View {
     let image: PlatformImage
-    /// 全屏页模式 (翻页阅读器) vs 流式模式 (垂直滚动)
-    var isFullPage: Bool = false
-    /// 容器尺寸兜底。
-    ///
-    /// viewSize 来自 preference 回传，首帧、页面复用、或 LazyHStack 里刚生成的
-    /// 那一页都可能还没有值。handleTapZone 开头有 `viewSize.width > 0` 的守卫，
-    /// size 为 0 时点击会被静默丢弃——表现正是「点画面中央偶尔没反应，
-    /// 转一下屏幕（触发重新布局）又好了」。这里用父级 GeometryReader 的尺寸兜住。
+    let scale: CGFloat
+    let offset: CGSize
+    /// 容器尺寸兜底：preference 还没回传时（首帧、页面复用）用它，
+    /// 否则 handleTapZone 里 `viewSize.width > 0` 的守卫会把整次点击丢掉。
     var containerSize: CGSize = .zero
     var onSingleTap: ((CGPoint, CGSize) -> Void)?
-    var onZoomChanged: ((Bool) -> Void)?
+    /// 双击切换 1x / 2x。状态在外部，这里只上报意图。
+    var onDoubleTap: (() -> Void)?
 
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
     @State private var viewSize: CGSize = .zero
     /// 手动双击检测
     @State private var lastTapTime: Date = .distantPast
     @State private var pendingSingleTap: Task<Void, Never>?
-    /// 防止双指缩放时触发拖动平移
-    @State private var isPinching: Bool = false
-
-    private var isZoomed: Bool { scale > 1.01 }
 
     var body: some View {
-        let imgSize = image.size
-        let ratio = imgSize.width > 0 ? imgSize.height / imgSize.width : 1.0
-
-        imageContent(ratio: ratio)
-            // 图片按 fit 缩放后，上下（或左右）会留出 letterbox 空白。
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .scaleEffect(scale)
+            .offset(offset)
+            .clipped()
+            // 图片按 fit 缩放后上下（或左右）会留出 letterbox 空白。
             // 显式声明整个容器都是可点区域，空白处点中央同样能唤出工具栏。
             .contentShape(Rectangle())
             .background {
@@ -1849,101 +1982,45 @@ private struct SwiftUIZoomableImage: View {
                 }
             }
             .onPreferenceChange(ViewSizePreferenceKey.self) { viewSize = $0 }
-            // ── 非缩放时的手势 (overlay 不拦截, 这些生效) ──
-            // 单击/双击: 统一 SpatialTapGesture + 300ms 手动检测
-            //
-            // 用 simultaneousGesture 而非 gesture：这一层在分页 ScrollView 内部，
-            // 独占的 tap 识别器会被 ScrollView 的平移识别器抢走（滚动一下之后的
-            // 头几次点击尤其容易丢），表现就是「点画面中央偶尔没反应」。
-            // 垂直模式早已改用 simultaneousGesture 并加了同样的注释，这里对齐。
+            // 单击/双击：SpatialTapGesture + 300ms 手动检测。
+            // 用 simultaneousGesture 而非 gesture —— 这一层在分页 ScrollView 里，
+            // 独占的 tap 识别器会被 ScrollView 的平移识别器抢走。
             .simultaneousGesture(
                 SpatialTapGesture(count: 1)
                     .onEnded { value in
                         handleTap(at: value.location)
                     }
             )
-            // 双指缩放: simultaneousGesture 不阻塞父 ScrollView
-            .simultaneousGesture(magnifyGesture)
-            // ── 缩放后的拖动 overlay ──
-            // allowsHitTesting: 1x 时不拦截 → 父 ScrollView 正常; >1x 时拦截 → 拖动平移
-            .overlay {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .allowsHitTesting(isZoomed)
-                    // overlay 上也需要 tap + pinch，否则会被 overlay 吞掉
-                    .gesture(
-                        SpatialTapGesture(count: 1)
-                            .onEnded { value in
-                                handleTap(at: value.location)
-                            }
-                    )
-                    .simultaneousGesture(magnifyGesture)
-                    // 拖动平移 (simultaneousGesture: 不阻塞同层 tap/pinch)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 5)
-                            .onChanged { value in
-                                guard !isPinching else { return }
-                                let proposed = CGSize(
-                                    width: lastOffset.width + value.translation.width,
-                                    height: lastOffset.height + value.translation.height
-                                )
-                                offset = clampOffset(proposed)
-                            }
-                            .onEnded { _ in
-                                if isPinching {
-                                    // 双指缩放期间的误触拖动 → 还原
-                                    offset = lastOffset
-                                } else {
-                                    lastOffset = offset
-                                }
-                            }
-                    )
-            }
     }
 
-    // MARK: - Gesture Definitions
-
-    /// 双指缩放手势 (抽取为计算属性, base 和 overlay 复用)
-    private var magnifyGesture: some Gesture {
-        MagnifyGesture()
-            .onChanged { value in
-                isPinching = true
-                scale = max(1.0, min(3.0, lastScale * value.magnification))
-            }
-            .onEnded { _ in
-                isPinching = false
-                lastScale = scale
-                if scale < 1.1 {
-                    withAnimation(.spring()) { resetZoom() }
-                } else {
-                    onZoomChanged?(true)
-                }
-            }
+    @ViewBuilder
+    private var content: some View {
+        if image.isAnimated {
+            #if os(macOS)
+            AnimatedImageView(image: image, contentMode: .scaleProportionallyUpOrDown)
+            #else
+            AnimatedImageView(image: image, contentMode: .scaleAspectFit)
+            #endif
+        } else {
+            nativeImage(image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        }
     }
 
-    /// 手动双击/单击检测: 300ms 窗口
-    /// - 第二次点击在 300ms 内 → 双击 (缩放切换)
-    /// - 超过 300ms 无第二次 → 单击 (工具栏/翻页)
+    /// 手动双击/单击检测：300ms 窗口
+    /// - 第二次点击在 300ms 内 → 双击（缩放切换，交给 onDoubleTap）
+    /// - 超过 300ms 无第二次 → 单击（工具栏/翻页）
     private func handleTap(at location: CGPoint) {
         let now = Date()
         let interval = now.timeIntervalSince(lastTapTime)
         lastTapTime = now
 
         if interval < 0.3 {
-            // ── 双击 ──
             pendingSingleTap?.cancel()
             pendingSingleTap = nil
-            withAnimation(.spring(duration: 0.3)) {
-                if scale < 1.5 {
-                    scale = 2.0
-                    lastScale = 2.0
-                    onZoomChanged?(true)
-                } else {
-                    resetZoom()
-                }
-            }
+            onDoubleTap?()
         } else {
-            // ── 可能是单击 — 等 300ms 确认不是双击 ──
             pendingSingleTap?.cancel()
             // preference 还没回传时用容器尺寸兜底，避免整次点击被静默丢弃
             let size = (viewSize.width > 0 && viewSize.height > 0) ? viewSize : containerSize
@@ -1953,82 +2030,6 @@ private struct SwiftUIZoomableImage: View {
                 onSingleTap?(location, size)
             }
         }
-    }
-
-    // MARK: - Image Content
-
-    @ViewBuilder
-    private func imageContent(ratio: CGFloat) -> some View {
-        if isFullPage {
-            if image.isAnimated {
-                #if os(macOS)
-                AnimatedImageView(image: image, contentMode: .scaleProportionallyUpOrDown)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(scale)
-                    .offset(offset)
-                    .clipped()
-                #else
-                AnimatedImageView(image: image, contentMode: .scaleAspectFit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(scale)
-                    .offset(offset)
-                    .clipped()
-                #endif
-            } else {
-                nativeImage(image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(scale)
-                    .offset(offset)
-                    .clipped()
-            }
-        } else {
-            if image.isAnimated {
-                #if os(macOS)
-                AnimatedImageView(image: image, contentMode: .scaleProportionallyUpOrDown)
-                    .frame(maxWidth: .infinity)
-                    .aspectRatio(1.0 / ratio, contentMode: .fit)
-                    .scaleEffect(scale)
-                    .offset(offset)
-                    .clipped()
-                #else
-                AnimatedImageView(image: image, contentMode: .scaleAspectFit)
-                    .frame(maxWidth: .infinity)
-                    .aspectRatio(1.0 / ratio, contentMode: .fit)
-                    .scaleEffect(scale)
-                    .offset(offset)
-                    .clipped()
-                #endif
-            } else {
-                nativeImage(image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .aspectRatio(1.0 / ratio, contentMode: .fit)
-                    .scaleEffect(scale)
-                    .offset(offset)
-                    .clipped()
-            }
-        }
-    }
-
-    private func resetZoom() {
-        scale = 1.0
-        lastScale = 1.0
-        offset = .zero
-        lastOffset = .zero
-        onZoomChanged?(false)
-    }
-
-    /// 限制平移范围: 不允许超过缩放后多出的可视区域
-    private func clampOffset(_ proposed: CGSize) -> CGSize {
-        let maxX = max(0, viewSize.width * (scale - 1) / 2)
-        let maxY = max(0, viewSize.height * (scale - 1) / 2)
-        return CGSize(
-            width: min(maxX, max(-maxX, proposed.width)),
-            height: min(maxY, max(-maxY, proposed.height))
-        )
     }
 }
 #endif
