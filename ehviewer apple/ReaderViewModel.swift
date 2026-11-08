@@ -1162,15 +1162,7 @@ class ReaderViewModel {
         #else
         let memoryGB = Double(ProcessInfo.processInfo.physicalMemory) / (1024 * 1024 * 1024)
         if UIDevice.current.userInterfaceIdiom == .pad { return memoryGB >= 8 ? 10 : 7 }
-        // iPhone：原来 3GB 机器只给 4，而设置里的默认值是 5 ——
-        // 用户在设置里把它调大也会被压回 4，等于那个开关在 SE 这类机型上是失效的。
-        // 现在按内存分档，让默认值能真正生效：
-        //   3GB(SE2/13 mini) → 5，4GB(14/15) → 6，6GB 及以上 → 8
-        // 单页解码后约 15MB（1600×2400×4B），每档只多一两页，配合已有的
-        // NSCache 成本上限（3GB 机器 80MB / 16 张）不会顶到 jetsam。
-        if memoryGB >= 6 { return 8 }
-        if memoryGB >= 4 { return 6 }
-        return 5
+        return memoryGB >= 6 ? 6 : 4
         #endif
     }
 
@@ -1250,19 +1242,9 @@ class ReaderViewModel {
         let forward = lastPreloadAnchor.map { page >= $0 } ?? true
         lastPreloadAnchor = page
 
-        // 「后面三页」是硬指标：不管预算多大、也不管当前是往前翻还是往回翻，
-        // 当前页的 +1/+2/+3 永远要被优先取回。这样连续往下看时，
-        // 翻到下一页它已经在内存里了，不用等转圈。
-        let urgentAhead = 3
-        // 顺着阅读方向多铺，逆向时也仍然保证这 3 页
-        let ahead = max(urgentAhead, forward ? budget : budget / 3)
-        // ★ 回看余量至少 2 页。
-        //
-        //   preload 是分批跑的，每批之间会检查取消——翻页一快，onPageChange 就把
-        //   上一轮 preloadTask 取消掉，后面几批根本没发出去。如果这些页刚好被你
-        //   「跳过去」了，它们就永远停在 0%：既不在新的前向窗口里，回看余量又只有
-        //   1 页，谁也轮不到它。留 2 页，下一次翻页就能把这些空洞补回来。
-        let behind = forward ? max(2, budget / 3) : budget
+        // 顺着阅读方向多铺，逆向只留少量回看余量
+        let ahead = forward ? budget : max(1, budget / 3)
+        let behind = forward ? max(1, budget / 4) : budget
 
         let lo = max(0, page - behind)
         let hi = min(totalPages - 1, page + ahead)
@@ -1289,27 +1271,12 @@ class ReaderViewModel {
             }
         guard !candidates.isEmpty else { return }
 
-        // ★ 后三页单独提到队首。
-        //
-        // 只按「距离」排序是不够的：第 -1 页（刚看过的）和 +1 页距离都是 1，
-        // 逆向翻页时甚至 -1 排前面，于是真正要看的 +1 被挤到后面，
-        // 连续翻页就一页一停。这里把 page+1…page+3 抽出来放到最前，
-        // 第一批并发（batchSize = 6）一定先把它们发出去。
-        let urgentPages = Set((1...urgentAhead).map { page + $0 })
-        let urgent = candidates.filter { urgentPages.contains($0) }
-        let rest = candidates.filter { !urgentPages.contains($0) }
-        let queue = urgent + rest
-
         // 分批而不是一次性全丢进 TaskGroup:
-        // 全量并发时第 6 页可能比第 1 页先回来，用户等的恰恰是第 1 页。
-        //
-        // 批大小从 3 提到 6：URLSession 那边 httpMaximumConnectionsPerHost 本来就是 6，
-        // 原来只用 3 条，另外 3 条一直空着。提到 6 之后，默认预加载窗口（5 页）
-        // 从「3+2 两轮」压成一轮并发，翻页等的是最慢那一张，而不是两轮之和。
-        let batchSize = 6
-        for chunk in stride(from: 0, to: queue.count, by: batchSize) {
+        // 全量并发时第 6 页可能比第 1 页先回来，用户等的恰恰是第 1 页
+        let batchSize = 3
+        for chunk in stride(from: 0, to: candidates.count, by: batchSize) {
             if Task.isCancelled { return }
-            let batch = queue[chunk..<min(chunk + batchSize, queue.count)]
+            let batch = candidates[chunk..<min(chunk + batchSize, candidates.count)]
             await withTaskGroup(of: Void.self) { group in
                 for p in batch {
                     group.addTask { [weak self] in
