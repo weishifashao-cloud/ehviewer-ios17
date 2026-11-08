@@ -166,6 +166,7 @@ struct EhTopTabs<T: Hashable>: View {
                             Text(item.title)
                                 .font(.system(size: 15, weight: selection == item.value ? .semibold : .regular))
                                 .foregroundStyle(selection == item.value ? EhColor.label : EhColor.secondaryLabel)
+                                .lineLimit(1)
 
                             Group {
                                 if selection == item.value {
@@ -178,11 +179,19 @@ struct EhTopTabs<T: Hashable>: View {
                             }
                             .frame(height: 2)
                         }
+                        // ★ 纵向撑满整条 36pt，而不是只让文字本身可点。
+                        //
+                        //   原来是 VStack 的自然高度（约 26pt），外面那 5pt 上下
+                        //   属于「点了没反应」的死区。小屏（SE 这类 320/375 宽的
+                        //   机器）上手指落在文字边缘就会被判成没点中。
+                        //   只改纵向：横向仍按内容宽度排布，其他机型的视觉不变。
+                        .frame(maxHeight: .infinity)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .frame(maxHeight: .infinity)
             .padding(.horizontal, EhSpacing.page)
         }
         .frame(height: 36)

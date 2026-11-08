@@ -563,6 +563,8 @@ struct GalleryDetailView: View {
                     Text(nsTranslation ?? group.groupName)
                         .font(.caption.bold())
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
                         .frame(width: 70, alignment: .trailing)
 
                     FlowLayout(spacing: 4) {
@@ -574,6 +576,10 @@ struct GalleryDetailView: View {
                             tagButton(label: tagTranslation ?? tag, fullTag: fullTag)
                         }
                     }
+                    // ★ 必须把这个 FlowLayout 声明为「可伸缩」，HStack 才会把
+                    //   剩余宽度以具体数值提案给它。否则 HStack 传的是 nil，
+                    //   FlowLayout 只能猜一个宽度，猜大了整行就溢出屏幕。
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal)
             }
@@ -681,6 +687,10 @@ struct GalleryDetailView: View {
         Text(text)
             .font(EhFont.caption)
             .foregroundStyle(EhColor.label)
+            // 单行 + 尾部省略：标签长度不可控（语言组里会出现整句），
+            // 不限制就会以理想宽度把整行撑破。截断由 FlowLayout 的可用宽度触发。
+            .lineLimit(1)
+            .truncationMode(.tail)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background {
@@ -1252,38 +1262,69 @@ struct FlowLayout: Layout {
     var spacing: CGFloat = 4
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = layout(in: proposal.width ?? 300, subviews: subviews)
-        return result.size
+        let limit = proposal.width ?? .infinity
+        let result = layout(in: limit, subviews: subviews)
+        // ★ 绝不能返回超过父级给定宽度的尺寸。
+        //
+        //   本视图被放在 HStack 里，而 HStack 测量子视图时给的是 nil 宽度
+        //   （即「告诉我你的理想宽度」）。旧实现用 `proposal.width ?? 300` 猜了个
+        //   300，且原样返回实测宽度：一旦某个标签很长、或者标签多到一行放不下，
+        //   返回宽度就会超过屏幕，外层 HStack / 整页 ScrollView 随即按这个更宽的
+        //   尺寸排版——表现就是「标签一多，整页像被放大，左右两边被裁掉」。
+        //   这里把返回值夹到 limit 以内，从根上断掉溢出链条。
+        let width = limit.isFinite ? min(result.size.width, limit) : result.size.width
+        return CGSize(width: width, height: result.size.height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let result = layout(in: bounds.width, subviews: subviews)
         for (index, offset) in result.offsets.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + offset.x, y: bounds.minY + offset.y), proposal: .unspecified)
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + offset.x, y: bounds.minY + offset.y),
+                // 用测量时的尺寸摆放，避免子视图被重新提案成理想宽度后二次溢出
+                proposal: ProposedViewSize(width: result.sizes[index].width,
+                                           height: result.sizes[index].height)
+            )
         }
     }
 
-    private func layout(in width: CGFloat, subviews: Subviews) -> (offsets: [CGPoint], size: CGSize) {
+    private func layout(in limit: CGFloat, subviews: Subviews)
+        -> (offsets: [CGPoint], sizes: [CGSize], size: CGSize) {
         var offsets: [CGPoint] = []
+        var sizes: [CGSize] = []
         var x: CGFloat = 0
         var y: CGFloat = 0
         var rowHeight: CGFloat = 0
         var maxWidth: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > width, x > 0 {
+            let ideal = subview.sizeThatFits(.unspecified)
+
+            // 单个标签就比整行可用宽度还长时（例如语言组里那种
+            // "japanese | definition revised please read the ..."），
+            // 不能再按理想宽度摆放——它自己就能撑破整行。改为按可用宽度重新
+            // 测量，交给标签内部的 Text 自己截断。
+            let size: CGSize
+            if limit.isFinite, ideal.width > limit, limit > 0 {
+                size = subview.sizeThatFits(ProposedViewSize(width: limit, height: nil))
+            } else {
+                size = ideal
+            }
+
+            if x > 0, x + size.width > limit {
                 x = 0
                 y += rowHeight + spacing
                 rowHeight = 0
             }
             offsets.append(CGPoint(x: x, y: y))
+            sizes.append(size)
             rowHeight = max(rowHeight, size.height)
             x += size.width + spacing
-            maxWidth = max(maxWidth, x)
+            // 只统计到最后一项的右边缘，不要带出尾随的行间距
+            maxWidth = max(maxWidth, x - spacing)
         }
 
-        return (offsets, CGSize(width: maxWidth, height: y + rowHeight))
+        return (offsets, sizes, CGSize(width: maxWidth, height: y + rowHeight))
     }
 }
 

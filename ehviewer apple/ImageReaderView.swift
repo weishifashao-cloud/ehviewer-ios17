@@ -686,7 +686,7 @@ struct ImageReaderView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
                         ForEach(0..<vm.totalPages, id: \.self) { idx in
-                            pageImage(index: idx)
+                            pageImage(index: idx, containerSize: geometry.size)
                                 .containerRelativeFrame(.horizontal)
                                 .id(idx)
                         }
@@ -1072,7 +1072,7 @@ struct ImageReaderView: View {
         #endif
     }
 
-    private func pageImage(index: Int) -> some View {
+    private func pageImage(index: Int, containerSize: CGSize = .zero) -> some View {
         Group {
             if vm.errorPages.contains(index) {
                 VStack(spacing: 12) {
@@ -1095,6 +1095,7 @@ struct ImageReaderView: View {
                 SwiftUIZoomableImage(
                     image: cachedImage,
                     isFullPage: true,
+                    containerSize: containerSize,
                     onSingleTap: { location, viewSize in
                         handleTapZone(location: location, viewSize: viewSize)
                     },
@@ -1792,6 +1793,13 @@ private struct SwiftUIZoomableImage: View {
     let image: PlatformImage
     /// 全屏页模式 (翻页阅读器) vs 流式模式 (垂直滚动)
     var isFullPage: Bool = false
+    /// 容器尺寸兜底。
+    ///
+    /// viewSize 来自 preference 回传，首帧、页面复用、或 LazyHStack 里刚生成的
+    /// 那一页都可能还没有值。handleTapZone 开头有 `viewSize.width > 0` 的守卫，
+    /// size 为 0 时点击会被静默丢弃——表现正是「点画面中央偶尔没反应，
+    /// 转一下屏幕（触发重新布局）又好了」。这里用父级 GeometryReader 的尺寸兜住。
+    var containerSize: CGSize = .zero
     var onSingleTap: ((CGPoint, CGSize) -> Void)?
     var onZoomChanged: ((Bool) -> Void)?
 
@@ -1813,6 +1821,9 @@ private struct SwiftUIZoomableImage: View {
         let ratio = imgSize.width > 0 ? imgSize.height / imgSize.width : 1.0
 
         imageContent(ratio: ratio)
+            // 图片按 fit 缩放后，上下（或左右）会留出 letterbox 空白。
+            // 显式声明整个容器都是可点区域，空白处点中央同样能唤出工具栏。
+            .contentShape(Rectangle())
             .background {
                 GeometryReader { geo in
                     Color.clear
@@ -1822,7 +1833,12 @@ private struct SwiftUIZoomableImage: View {
             .onPreferenceChange(ViewSizePreferenceKey.self) { viewSize = $0 }
             // ── 非缩放时的手势 (overlay 不拦截, 这些生效) ──
             // 单击/双击: 统一 SpatialTapGesture + 300ms 手动检测
-            .gesture(
+            //
+            // 用 simultaneousGesture 而非 gesture：这一层在分页 ScrollView 内部，
+            // 独占的 tap 识别器会被 ScrollView 的平移识别器抢走（滚动一下之后的
+            // 头几次点击尤其容易丢），表现就是「点画面中央偶尔没反应」。
+            // 垂直模式早已改用 simultaneousGesture 并加了同样的注释，这里对齐。
+            .simultaneousGesture(
                 SpatialTapGesture(count: 1)
                     .onEnded { value in
                         handleTap(at: value.location)
@@ -1911,7 +1927,8 @@ private struct SwiftUIZoomableImage: View {
         } else {
             // ── 可能是单击 — 等 300ms 确认不是双击 ──
             pendingSingleTap?.cancel()
-            let size = viewSize
+            // preference 还没回传时用容器尺寸兜底，避免整次点击被静默丢弃
+            let size = (viewSize.width > 0 && viewSize.height > 0) ? viewSize : containerSize
             pendingSingleTap = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }

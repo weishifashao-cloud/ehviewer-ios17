@@ -18,10 +18,10 @@ enum SearchMode: Int, CaseIterable {
 
     var label: String {
         switch self {
-        case .normal:       return "Normal search"
-        case .subscription: return "Subscription search"
-        case .uploader:     return "Specify uploader"
-        case .tag:          return "Specify tag"
+        case .normal:       return "普通搜索"
+        case .subscription: return "订阅搜索"
+        case .uploader:     return "指定上传者"
+        case .tag:          return "指定标签"
         }
     }
 
@@ -45,16 +45,16 @@ private struct CategoryItem: Identifiable {
 }
 
 private let categoryGrid: [[CategoryItem]] = [
-    [CategoryItem(category: .doujinshi, name: "Doujinshi", color: Color(red: 0.957, green: 0.263, blue: 0.212)),
-     CategoryItem(category: .manga,     name: "Manga",     color: Color(red: 1.0,   green: 0.596, blue: 0.0))],
-    [CategoryItem(category: .artistCG,  name: "Artist CG", color: Color(red: 0.984, green: 0.753, blue: 0.176)),
-     CategoryItem(category: .gameCG,    name: "Game CG",   color: Color(red: 0.298, green: 0.686, blue: 0.314))],
-    [CategoryItem(category: .western,   name: "Western",   color: Color(red: 0.545, green: 0.765, blue: 0.290)),
-     CategoryItem(category: .nonH,      name: "Non-H",     color: Color(red: 0.129, green: 0.588, blue: 0.953))],
-    [CategoryItem(category: .imageSet,  name: "Image Set", color: Color(red: 0.247, green: 0.318, blue: 0.710)),
+    [CategoryItem(category: .doujinshi, name: "同人志", color: Color(red: 0.957, green: 0.263, blue: 0.212)),
+     CategoryItem(category: .manga,     name: "漫画",     color: Color(red: 1.0,   green: 0.596, blue: 0.0))],
+    [CategoryItem(category: .artistCG,  name: "画师CG", color: Color(red: 0.984, green: 0.753, blue: 0.176)),
+     CategoryItem(category: .gameCG,    name: "游戏CG",   color: Color(red: 0.298, green: 0.686, blue: 0.314))],
+    [CategoryItem(category: .western,   name: "西方",   color: Color(red: 0.545, green: 0.765, blue: 0.290)),
+     CategoryItem(category: .nonH,      name: "非H",     color: Color(red: 0.129, green: 0.588, blue: 0.953))],
+    [CategoryItem(category: .imageSet,  name: "图集", color: Color(red: 0.247, green: 0.318, blue: 0.710)),
      CategoryItem(category: .cosplay,   name: "Cosplay",   color: Color(red: 0.612, green: 0.153, blue: 0.690))],
-    [CategoryItem(category: .asianPorn, name: "Asian Porn", color: Color(red: 0.585, green: 0.459, blue: 0.804)),
-     CategoryItem(category: .misc,      name: "Misc",      color: Color(red: 0.941, green: 0.384, blue: 0.573))],
+    [CategoryItem(category: .asianPorn, name: "亚洲", color: Color(red: 0.585, green: 0.459, blue: 0.804)),
+     CategoryItem(category: .misc,      name: "杂项",      color: Color(red: 0.941, green: 0.384, blue: 0.573))],
 ]
 
 // MARK: - AdvancedSearchState
@@ -251,7 +251,7 @@ struct AdvancedSearchView: View {
 
     private var normalSearchCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Normal Search")
+            Text("普通搜索")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
@@ -268,7 +268,7 @@ struct AdvancedSearchView: View {
 
             HStack {
                 Spacer()
-                Toggle("Enable advance options", isOn: $state.enableAdvance)
+                Toggle("启用高级选项", isOn: $state.enableAdvance)
                     .toggleStyle(.switch)
                     .font(.subheadline)
             }
@@ -345,7 +345,7 @@ struct AdvancedSearchView: View {
 
     private var advanceOptionsCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Advance Options")
+            Text("高级选项")
                 .font(.subheadline.bold())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
@@ -354,33 +354,33 @@ struct AdvancedSearchView: View {
 
             VStack(spacing: 0) {
                 advRow {
-                    advCheck("Search Gallery Name", isOn: $state.searchGalleryName)
-                    advCheck("Search Gallery Tags", isOn: $state.searchGalleryTags)
+                    advCheck("搜索画廊标题", isOn: $state.searchGalleryName)
+                    advCheck("搜索画廊标签", isOn: $state.searchGalleryTags)
                 }
                 advRow {
-                    advCheck("Search Gallery Description", isOn: $state.searchGalleryDescription)
-                    advCheck("Search Torrent Filenames", isOn: $state.searchTorrentFilenames)
+                    advCheck("搜索画廊简介", isOn: $state.searchGalleryDescription)
+                    advCheck("搜索种子文件名", isOn: $state.searchTorrentFilenames)
                 }
                 advRow {
-                    advCheck("Only Show With Torrents", isOn: $state.onlyShowWithTorrents)
-                    advCheck("Search Low-Power Tags", isOn: $state.searchLowPowerTags)
+                    advCheck("仅显示有种子的", isOn: $state.onlyShowWithTorrents)
+                    advCheck("搜索低权重标签", isOn: $state.searchLowPowerTags)
                 }
                 advRow {
-                    advCheck("Search Downvoted Tags", isOn: $state.searchDownvotedTags)
-                    advCheck("Search Expunged Galleries", isOn: $state.searchExpungedGalleries)
+                    advCheck("搜索被踩的标签", isOn: $state.searchDownvotedTags)
+                    advCheck("搜索已删除画廊", isOn: $state.searchExpungedGalleries)
                 }
 
                 Divider().padding(.vertical, 4)
 
                 HStack {
-                    advCheck("Minimum Rating:", isOn: $state.enableMinRating)
+                    advCheck("最低评分：", isOn: $state.enableMinRating)
                     Spacer()
                     if state.enableMinRating {
                         Picker("", selection: $state.minRating) {
-                            Text("2 stars").tag(2)
-                            Text("3 stars").tag(3)
-                            Text("4 stars").tag(4)
-                            Text("5 stars").tag(5)
+                            Text("2 星").tag(2)
+                            Text("3 星").tag(3)
+                            Text("4 星").tag(4)
+                            Text("5 星").tag(5)
                         }
                         .labelsHidden()
                         #if os(iOS)
@@ -392,19 +392,19 @@ struct AdvancedSearchView: View {
                 .padding(.vertical, 4)
 
                 HStack {
-                    advCheck("Pages:", isOn: $state.enablePageRange)
+                    advCheck("页数：", isOn: $state.enablePageRange)
                     if state.enablePageRange {
                         Spacer(minLength: 8)
-                        TextField("from", text: $state.pageFrom)
+                        TextField("起", text: $state.pageFrom)
                             #if os(iOS)
                             .keyboardType(.numberPad)
                             #endif
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 60)
-                        Text("to")
+                        Text("至")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        TextField("to", text: $state.pageTo)
+                        TextField("止", text: $state.pageTo)
                             #if os(iOS)
                             .keyboardType(.numberPad)
                             #endif
@@ -418,16 +418,16 @@ struct AdvancedSearchView: View {
 
                 Divider().padding(.vertical, 4)
 
-                Text("Disable default filters for:")
+                Text("禁用默认过滤器：")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 2)
 
                 HStack(spacing: 4) {
-                    advCheck("Language", isOn: $state.disableLanguageFilter)
-                    advCheck("Uploader", isOn: $state.disableUploaderFilter)
-                    advCheck("Tags", isOn: $state.disableTagFilter)
+                    advCheck("语言", isOn: $state.disableLanguageFilter)
+                    advCheck("上传者", isOn: $state.disableUploaderFilter)
+                    advCheck("标签", isOn: $state.disableTagFilter)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
