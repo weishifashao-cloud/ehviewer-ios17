@@ -210,33 +210,59 @@ public actor EhAPI {
 
     // MARK: - 域名前置回退 (对应 Android OkHttp Dns 接口)
 
-    /// 使用内置 IP 直连服务器 (域名前置)
+    /// 使用内置 IP / DoH 结果直连服务器 (域名前置)
     /// Android 端 OkHttp 的 Dns 接口在 socket 层替换 IP 不影响 TLS SNI
     /// iOS URLSession 无此能力，因此通过 URL 替换 IP + Host header + 自定义证书验证实现
+    ///
+    /// 解析顺序交给 `EhDNS.resolveForFronting`：用户自定义 → DoH（可选）→ 内置表。
+    /// 拿到多个 IP 时**逐个试**，因为内置表可能含已失效的地址，只试第一个
+    /// 会让整次回退白白作废。
     private func attemptDomainFronting(
         for request: URLRequest,
         using fallbackSession: URLSession,
         originalError: Error
     ) async throws -> (Data, URLResponse) {
-        let frontedRequest = EhDNS.shared.forceDomainFronting(to: request)
+        guard let host = request.url?.host else { throw originalError }
 
-        // 如果没有内置 IP (forceDomainFronting 返回原始请求)，直接抛原始错误
-        guard frontedRequest.url != request.url else {
-            print("[EhAPI] 无内置 IP 可用于域名前置，抛出原始错误")
+        let candidates = await EhDNS.shared.resolveForFronting(host: host)
+        guard !candidates.isEmpty else {
+            print("[EhAPI] 域名前置: \(host) 无可用 IP（用户 hosts / DoH / 内置表均为空）")
             throw originalError
         }
 
-        let host = request.url?.host ?? "unknown"
-        let ip = frontedRequest.url?.host ?? "unknown"
-        print("[EhAPI] 主要请求失败 (\(originalError.localizedDescription))，尝试域名前置直连: \(host) → \(ip)")
+        print("[EhAPI] 主要请求失败 (\(originalError.localizedDescription))，"
+              + "尝试域名前置: \(host)，候选 \(candidates.count) 个")
 
-        do {
-            return try await fallbackSession.data(for: frontedRequest)
-        } catch {
-            // 域名前置也失败了，抛出原始错误 (用户更容易理解)
-            print("[EhAPI] 域名前置也失败: \(error.localizedDescription)")
-            throw originalError
+        var lastError: Error?
+        for ip in candidates.prefix(3) {
+            guard let fronted = EhDNS.shared.makeFrontedRequest(request, ip: ip) else {
+                print("[EhAPI] 域名前置: \(host) → \(ip) 无法构造 URL，跳过")
+                continue
+            }
+            do {
+                let result = try await fallbackSession.data(for: fronted)
+                print("[EhAPI] 域名前置成功: \(host) → \(ip)")
+                return result
+            } catch {
+                lastError = error
+                // 这一步的报错很关键，排查时要区分三种情况：
+                //   握手失败        → 该站点在 Cloudflare 后面，无 SNI 直接被拒
+                //   证书不匹配      → 服务器返回了默认证书，但 Host 头没传进去
+                //   超时 / 拒绝连接 → IP 本身已失效
+                print("[EhAPI] 域名前置失败: \(host) → \(ip): \(error.localizedDescription)")
+
+                // 结构性失败：站点在 Cloudflare 后面，无 SNI 会被直接拒绝。
+                // 换同站点段的另一个 IP 结果完全一样，没必要让用户再白等两轮超时。
+                if let urlError = error as? URLError, urlError.code == .secureConnectionFailed {
+                    print("[EhAPI] 域名前置: TLS 在无 SNI 情况下被拒，后续候选不再尝试")
+                    break
+                }
+            }
         }
+
+        // 全部失败，抛出原始错误 (用户更容易理解)
+        print("[EhAPI] 域名前置全部失败（最后一条: \(lastError?.localizedDescription ?? "无")）")
+        throw originalError
     }
 
     /// 判断是否应该尝试域名前置直连回退
