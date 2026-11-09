@@ -210,13 +210,16 @@ public actor EhAPI {
 
     // MARK: - 域名前置回退 (对应 Android OkHttp Dns 接口)
 
-    /// 使用内置 IP / DoH 结果直连服务器 (域名前置)
-    /// Android 端 OkHttp 的 Dns 接口在 socket 层替换 IP 不影响 TLS SNI
-    /// iOS URLSession 无此能力，因此通过 URL 替换 IP + Host header + 自定义证书验证实现
+    /// 用真实 IP 直连服务器，同时保持 TLS 的 SNI 与证书校验仍然针对原域名。
+    ///
+    /// 走 `DirectTLSClient`（NWConnection 自建通道），而不是把 URL 的 host 改成 IP：
+    ///   URLSession 对 IP 字面量不发 SNI，Cloudflare 前置的站点会在握手阶段直接拒绝，
+    ///   这条路在 iOS 上是结构性走不通的（实测 104.20.18.168 不带 SNI 必然握手失败）。
+    ///   NWConnection 可以把「端点地址」和「TLS SNI」分开设置，等价于 Android
+    ///   OkHttp 的 `Dns` 接口——只换地址，不动身份。
     ///
     /// 解析顺序交给 `EhDNS.resolveForFronting`：用户自定义 → DoH（可选）→ 内置表。
-    /// 拿到多个 IP 时**逐个试**，因为内置表可能含已失效的地址，只试第一个
-    /// 会让整次回退白白作废。
+    /// 拿到多个 IP 时逐个试，遇到 IP 失效不至于让整次回退作废。
     private func attemptDomainFronting(
         for request: URLRequest,
         using fallbackSession: URLSession,
@@ -226,42 +229,35 @@ public actor EhAPI {
 
         let candidates = await EhDNS.shared.resolveForFronting(host: host)
         guard !candidates.isEmpty else {
-            print("[EhAPI] 域名前置: \(host) 无可用 IP（用户 hosts / DoH / 内置表均为空）")
+            print("[EhAPI] 直连: \(host) 无可用 IP（用户 hosts / DoH / 内置表均为空）")
             throw originalError
         }
 
         print("[EhAPI] 主要请求失败 (\(originalError.localizedDescription))，"
-              + "尝试域名前置: \(host)，候选 \(candidates.count) 个")
+              + "尝试直连: \(host)，候选 \(candidates.count) 个")
 
         var lastError: Error?
         for ip in candidates.prefix(3) {
-            guard let fronted = EhDNS.shared.makeFrontedRequest(request, ip: ip) else {
-                print("[EhAPI] 域名前置: \(host) → \(ip) 无法构造 URL，跳过")
-                continue
-            }
             do {
-                let result = try await fallbackSession.data(for: fronted)
-                print("[EhAPI] 域名前置成功: \(host) → \(ip)")
+                let result = try await DirectTLSClient.shared.perform(request, ip: ip, host: host)
+                print("[EhAPI] 直连成功（SNI 保持不变）: \(host) → \(ip)")
                 return result
             } catch {
                 lastError = error
-                // 这一步的报错很关键，排查时要区分三种情况：
-                //   握手失败        → 该站点在 Cloudflare 后面，无 SNI 直接被拒
-                //   证书不匹配      → 服务器返回了默认证书，但 Host 头没传进去
-                //   超时 / 拒绝连接 → IP 本身已失效
-                print("[EhAPI] 域名前置失败: \(host) → \(ip): \(error.localizedDescription)")
-
-                // 结构性失败：站点在 Cloudflare 后面，无 SNI 会被直接拒绝。
-                // 换同站点段的另一个 IP 结果完全一样，没必要让用户再白等两轮超时。
-                if let urlError = error as? URLError, urlError.code == .secureConnectionFailed {
-                    print("[EhAPI] 域名前置: TLS 在无 SNI 情况下被拒，后续候选不再尝试")
+                // 排查时按这三类区分：
+                //   直连 TLS 握手被拒 → 该域名确实被 IP/SNI 层拦截，换 IP 无用
+                //   直连连接失败/超时 → IP 本身不可达
+                //   直连响应格式异常   → 对端不是标准 HTTP/1.1
+                print("[EhAPI] 直连失败: \(host) → \(ip): \(error.localizedDescription)")
+                if DirectTLSClient.isFatal(error) {
+                    print("[EhAPI] 直连: 属于结构性失败，后续候选不再尝试")
                     break
                 }
             }
         }
 
         // 全部失败，抛出原始错误 (用户更容易理解)
-        print("[EhAPI] 域名前置全部失败（最后一条: \(lastError?.localizedDescription ?? "无")）")
+        print("[EhAPI] 直连全部失败（最后一条: \(lastError?.localizedDescription ?? "无")）")
         throw originalError
     }
 
