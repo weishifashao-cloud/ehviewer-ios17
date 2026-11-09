@@ -262,18 +262,27 @@ public actor EhAPI {
     }
 
     /// 判断是否应该尝试域名前置直连回退
+    /// 判断是否应该尝试直连回退。
+    ///
+    /// ⚠️ 这里刻意用「排除法」而不是白名单。
+    ///
+    /// 原来只列了 6 个错误码，漏掉了最要命的那一类：DNS 污染通常会把域名
+    /// 解析到某台真实服务器，TLS 握手时对方返回的是**它自己的证书**，
+    /// URLSession 报的是 `.serverCertificateUntrusted`(-1202)，
+    /// 而不是握手失败。白名单里没有它，于是回退一次都不会触发 ——
+    /// 这正是「改完直连通道还是连不上」的直接原因：
+    /// 图片层 shouldFallbackToEhAPI 认证书错误，进了 EhAPI 又被这里拦掉。
+    ///
+    /// 现在只排除确实不该重试的三种：用户取消、需要认证、明确离线。
     private static func shouldTryDirectFallback(_ error: Error) -> Bool {
         guard let urlError = error as? URLError else { return false }
         switch urlError.code {
-        case .cannotConnectToHost,    // 无法连接 (代理 503 / 连接被拒)
-             .cannotFindHost,         // DNS 解析失败
-             .dnsLookupFailed,        // DNS 查找失败
-             .timedOut,               // 超时 (可能被 GFW RST)
-             .networkConnectionLost,  // 连接中断 (代理返回 503)
-             .secureConnectionFailed: // TLS 握手失败
-            return true
-        default:
+        case .cancelled,                // 用户取消 / 任务被取消
+             .userCancelledAuthentication,
+             .notConnectedToInternet:   // 明确离线 —— 走后面的缓存回退，不必直连
             return false
+        default:
+            return true
         }
     }
 

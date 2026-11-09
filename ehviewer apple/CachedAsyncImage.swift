@@ -232,7 +232,9 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             do {
                 var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy)
                 request.setValue(referer, forHTTPHeaderField: "Referer")
-                let (data, response) = try await ImageSessionProvider.shared.data(for: request)
+                // 走带直连回退的执行器：DNS 被污染时裸 session 必然失败，
+                // 而缩略图是浏览页最显眼的一块，不能没有兜底。
+                let (data, response) = try await EhDirectFetch.data(for: request, using: ImageSessionProvider.shared)
 
                 // 验证 HTTP 状态码
                 if let httpResponse = response as? HTTPURLResponse,

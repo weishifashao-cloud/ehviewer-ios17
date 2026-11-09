@@ -17,6 +17,7 @@
 import Foundation
 import CoreGraphics
 import ImageIO
+import EhAPI
 
 #if canImport(UIKit)
 import UIKit
@@ -83,7 +84,9 @@ actor SpriteSheetCache {
             let data: Data
             if let cached = URLCache.shared.cachedResponse(for: request) {
                 data = cached.data
-            } else if let (fetched, response) = try? await URLSession.shared.data(for: request) {
+            } else if let (fetched, response) = try? await EhDirectFetch.data(
+                for: request, using: URLSession.shared
+            ) {
                 URLCache.shared.storeCachedResponse(
                     CachedURLResponse(response: response, data: fetched), for: request
                 )

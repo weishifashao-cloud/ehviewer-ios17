@@ -1856,7 +1856,27 @@ class SettingsViewModel {
                 }
             }
             
-            // 3. 代理检测
+            // 3. 直连通道测试（NWConnection：端点写 IP，但 TLS SNI 仍是原域名）
+            //
+            //    这一步才是关键诊断：前两步测的都是系统 DNS / URLSession，
+            //    而移动数据下失败恰恰是因为系统 DNS 被污染。直连通道走的是
+            //    「自定义解析 + 保持 SNI」，它能通就说明绕开污染了；
+            //    它失败时的报错能直接区分是「IP 不可达」还是「TLS 被拒」。
+            if let probeURL = URL(string: "https://e-hentai.org/") {
+                var probe = URLRequest(url: probeURL)
+                probe.httpMethod = "HEAD"
+                probe.timeoutInterval = 12
+                do {
+                    let (_, response) = try await EhDirectFetch.directData(for: probe)
+                    let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+                    results.append("✓ 直连通道可用 (HTTP \(code))")
+                } catch {
+                    results.append("✗ 直连通道: \(error.localizedDescription)")
+                    allSuccess = false
+                }
+            }
+
+            // 4. 代理检测
             #if os(iOS)
             let proxySettings = CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any]
             if let httpProxy = proxySettings?["HTTPProxy"] as? String, !httpProxy.isEmpty {

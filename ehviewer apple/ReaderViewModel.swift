@@ -650,7 +650,9 @@ class ReaderViewModel {
                              forHTTPHeaderField: "User-Agent")
             request.timeoutInterval = 15
 
-            let (data, _) = try await Self.session.data(for: request)
+            // 这一步是每 20 页抓一次的 pToken，DNS 被污染时裸 session 会直接失败，
+            // 导致后面所有页都拿不到图片地址 —— 走带直连回退的执行器。
+            let (data, _) = try await EhDirectFetch.data(for: request, using: Self.session)
             let html = String(data: data, encoding: .utf8) ?? ""
 
             if let match = Self.pagesPattern.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
