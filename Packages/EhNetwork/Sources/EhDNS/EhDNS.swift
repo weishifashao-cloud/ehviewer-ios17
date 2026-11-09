@@ -126,6 +126,17 @@ public final class EhDNS: @unchecked Sendable {
         return userHosts
     }
 
+    /// 同步取某域名的自定义记录。
+    ///
+    /// 单独抽出来是因为 `NSLock.lock()/unlock()` 在 async 上下文里会被编译器
+    /// 直接拒绝（"instance method 'lock' is unavailable from asynchronous contexts"），
+    /// 异步函数只能通过这样一个同步入口去拿。
+    private func userIPs(for host: String) -> [String]? {
+        lock.lock()
+        defer { lock.unlock() }
+        return userHosts[host]
+    }
+
     private func persistUserHosts() {
         // 已在 lock 内调用
         UserDefaults.standard.set(userHosts, forKey: Self.userHostsKey)
@@ -166,10 +177,8 @@ public final class EhDNS: @unchecked Sendable {
     /// 返回顺序：用户自定义 → DoH → 内置表。
     public func resolveForFronting(host: String) async -> [String] {
         // 1) 用户自定义最优先（用户明确指定过，说明他自己验证过）
-        lock.lock()
-        let userIps = userHosts[host]
-        lock.unlock()
-        if let ips = userIps, !ips.isEmpty {
+        //    NSLock 在 async 上下文里被标记为不可用，取值这一步抽成同步函数。
+        if let ips = userIPs(for: host), !ips.isEmpty {
             return ips.shuffled()
         }
 
@@ -204,10 +213,7 @@ public final class EhDNS: @unchecked Sendable {
 
     public func forceResolve(host: String) -> [String] {
         // 用户自定义优先
-        lock.lock()
-        let userIps = userHosts[host]
-        lock.unlock()
-        if let ips = userIps, !ips.isEmpty {
+        if let ips = userIPs(for: host), !ips.isEmpty {
             return ips.shuffled()  // 对齐 Android: Collections.shuffle()
         }
         // 回退到内置
